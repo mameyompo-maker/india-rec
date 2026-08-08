@@ -1,4 +1,4 @@
-# JatMed — NBF (Tanheia) 26 圃場測定アプリ
+# India Rec — NBF (Tanheia) 26 圃場測定アプリ
 
 モザンビークの現場作業者がスマホで Jatropha の測定値を登録し、Google スプレッドシート
 [NBF(Tanheia)26](https://docs.google.com/spreadsheets/d/1WSfQdkMdy_cton-Za6TGzRmpSi1cjycWqHfMCS_cDXQ/edit)
@@ -48,7 +48,7 @@ Google Apps Script(ウェブアプリ)
    - 値: 好きな長い文字列(例 `NBF-Tanheia-2026-xxxxxxxx`)。これが現場端末に入力する
      「Código de activação」になる。**推測されにくい20文字以上**にすること
 4. 右上 **デプロイ → 新しいデプロイ → 種類:ウェブアプリ**
-   - 説明: `JatMed v1`
+   - 説明: `India Rec v1`
    - **次のユーザーとして実行: 自分**
    - **アクセスできるユーザー: 全員**
    - デプロイ → 初回は権限の承認画面が出る(「詳細」→「安全ではないページに移動」で進む)

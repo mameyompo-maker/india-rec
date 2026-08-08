@@ -1,9 +1,9 @@
-/* JatMed — service worker.
+/* India Rec — service worker.
  *
  * IMPORTANTE: subir CACHE sempre que se altera qualquer ficheiro em docs/,
  * caso contrário os telemóveis continuam a usar a versão antiga.
  */
-var CACHE = 'jatmed-v1';
+var CACHE = 'indiarec-v1';
 
 var FICHEIROS = [
   './',

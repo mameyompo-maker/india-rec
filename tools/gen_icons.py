@@ -1,87 +1,76 @@
 # -*- coding: utf-8 -*-
-"""Gera os icones do JatMed: uma folha de Jatropha (5 lobos) sobre fundo escuro."""
+"""Gera os icones do India Rec a partir do logotipo fornecido pelo Kaz.
 
-import math
+O ficheiro de origem (`logo_source.png`) tem a marca em cima e o texto
+"Seed Weight" em baixo. So a marca e aproveitada: o texto e cortado e a
+marca e recentrada sobre o fundo escuro da aplicacao.
+"""
+
 from pathlib import Path
 from PIL import Image, ImageDraw
 
-FUNDO = (18, 20, 15)
-FOLHA = (124, 179, 66)
-FOLHA_ESC = (85, 139, 47)
-NERVURA = (35, 52, 20)
-PECIOLO = (109, 138, 62)
+RAIZ = Path(__file__).resolve().parent.parent
+ORIGEM = RAIZ / 'tools' / 'logo_source.png'
+SAIDA = RAIZ / 'docs'
 
-SS = 4  # supersampling
-
-
-def lobo(d, cx, cy, ang, comp, larg, cor):
-    """Desenha um lobo (petala) como poligono simetrico em torno do angulo dado."""
-    pts = []
-    passos = 26
-    for i in range(passos + 1):
-        t = i / passos
-        # largura maxima a ~40% do comprimento, ponta afilada
-        w = larg * math.sin(math.pi * t) * (1.0 - 0.35 * t)
-        r = comp * t
-        px = cx + r * math.cos(ang) - w * math.sin(ang)
-        py = cy + r * math.sin(ang) + w * math.cos(ang)
-        pts.append((px, py))
-    for i in range(passos, -1, -1):
-        t = i / passos
-        w = larg * math.sin(math.pi * t) * (1.0 - 0.35 * t)
-        r = comp * t
-        px = cx + r * math.cos(ang) + w * math.sin(ang)
-        py = cy + r * math.sin(ang) - w * math.cos(ang)
-        pts.append((px, py))
-    d.polygon(pts, fill=cor)
+FUNDO = (18, 20, 15)          # --bg da aplicacao
+LIMIAR = 28                   # acima disto deixa de ser "preto de fundo"
+CORTE_TEXTO = 0.635           # fraccao da altura a partir da qual comeca "Seed Weight"
+SS = 2                        # supersampling ao compor
 
 
-def desenhar(tamanho, margem_rel=0.16, raio_rel=0.22, fundo=FUNDO):
+def marca():
+    """Devolve a marca recortada, em RGBA com fundo transparente."""
+    img = Image.open(ORIGEM).convert('RGB')
+    larg, alt = img.size
+    topo = img.crop((0, 0, larg, int(alt * CORTE_TEXTO)))
+
+    # mascara do que nao e fundo preto
+    cinza = topo.convert('L')
+    mascara = cinza.point(lambda v: 255 if v > LIMIAR else 0)
+    caixa = mascara.getbbox()
+    if caixa is None:
+        raise SystemExit('nao encontrei a marca no logotipo')
+
+    recorte = topo.crop(caixa)
+    recorte.putalpha(mascara.crop(caixa))
+
+    # quadrado, mantendo a proporcao
+    lado = max(recorte.size)
+    quadrado = Image.new('RGBA', (lado, lado), (0, 0, 0, 0))
+    quadrado.paste(recorte,
+                   ((lado - recorte.width) // 2, (lado - recorte.height) // 2),
+                   recorte)
+    return quadrado
+
+
+def compor(base, tamanho, margem=0.14, raio=0.22):
     n = tamanho * SS
-    img = Image.new('RGBA', (n, n), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.rounded_rectangle([0, 0, n - 1, n - 1], radius=int(n * raio_rel), fill=fundo)
+    fundo = Image.new('RGBA', (n, n), (0, 0, 0, 0))
+    d = ImageDraw.Draw(fundo)
+    d.rounded_rectangle([0, 0, n - 1, n - 1], radius=int(n * raio), fill=FUNDO + (255,))
 
-    cx, cy = n / 2, n / 2 + n * 0.06
-    comp = n * (0.5 - margem_rel)
-    larg = comp * 0.30
-
-    # peciolo
-    d.line([(cx, cy), (cx, cy + n * 0.30)], fill=PECIOLO, width=int(n * 0.035))
-
-    # 5 lobos, abertos para cima
-    angulos = [-math.pi / 2 + a for a in (-1.30, -0.66, 0.0, 0.66, 1.30)]
-    for i, a in enumerate(angulos):
-        c = comp * (1.0 if i == 2 else (0.90 if i in (1, 3) else 0.74))
-        lobo(d, cx, cy, a, c, larg * (1.0 if i == 2 else 0.88), FOLHA_ESC)
-
-    for i, a in enumerate(angulos):
-        c = comp * (1.0 if i == 2 else (0.90 if i in (1, 3) else 0.74))
-        lobo(d, cx, cy, a, c * 0.93, larg * (0.92 if i == 2 else 0.80), FOLHA)
-
-    # nervuras
-    for i, a in enumerate(angulos):
-        c = comp * (1.0 if i == 2 else (0.90 if i in (1, 3) else 0.74)) * 0.80
-        d.line([(cx, cy), (cx + c * math.cos(a), cy + c * math.sin(a))],
-               fill=NERVURA, width=max(1, int(n * 0.014)))
-
-    return img.resize((tamanho, tamanho), Image.LANCZOS)
+    interior = int(n * (1 - 2 * margem))
+    m = base.resize((interior, interior), Image.LANCZOS)
+    desvio = (n - interior) // 2
+    fundo.paste(m, (desvio, desvio), m)
+    return fundo.resize((tamanho, tamanho), Image.LANCZOS)
 
 
 def main():
-    saida = Path(__file__).resolve().parent.parent / 'docs'
-    saida.mkdir(parents=True, exist_ok=True)
+    base = marca()
+    print(f'  marca recortada: {base.size[0]}x{base.size[1]}')
 
     for nome, tam, kw in [
         ('icon-192.png', 192, {}),
         ('icon-512.png', 512, {}),
-        ('icon-180.png', 180, {'raio_rel': 0.0}),          # iOS aplica a mascara sozinho
-        ('icon-512-maskable.png', 512, {'margem_rel': 0.28, 'raio_rel': 0.0}),
-        ('favicon.png', 64, {}),
+        ('icon-180.png', 180, {'raio': 0.0}),                    # o iOS aplica a mascara
+        ('icon-512-maskable.png', 512, {'margem': 0.26, 'raio': 0.0}),
+        ('favicon.png', 64, {'margem': 0.08}),
     ]:
-        img = desenhar(tam, **kw)
-        img.convert('RGB').save(saida / nome, 'PNG', optimize=True)
-        print(f'  {nome:26s} {(saida / nome).stat().st_size:>7,} bytes')
+        img = compor(base, tam, **kw)
+        img.convert('RGB').save(SAIDA / nome, 'PNG', optimize=True)
+        print(f'  {nome:26s} {(SAIDA / nome).stat().st_size:>7,} bytes')
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 /**
- * JatMed — endpoint de escrita para a folha de calculo NBF(Tanheia) 26.
+ * India Rec — endpoint de escrita para a folha de calculo NBF(Tanheia) 26.
  *
  * Implanta como: Implementar > Nova implementacao > Aplicacao web
  *   - Executar como      : Eu (dono da folha)

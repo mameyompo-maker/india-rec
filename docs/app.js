@@ -1,4 +1,4 @@
-/* JatMed — registo de medições de campo, funciona sem rede.
+/* India Rec — registo de medições de campo, funciona sem rede.
  *
  * Fluxo: activação -> nome -> levantamento -> (ronda) -> planta -> formulário.
  * Tudo o que é gravado vai primeiro para o IndexedDB do aparelho e só depois
@@ -7,7 +7,7 @@
  */
 'use strict';
 
-var CFG = window.JATMED_CONFIG || {};
+var CFG = window.INDIAREC_CONFIG || {};
 var LOTE_ENVIO = 25;          // entradas por pedido HTTP
 var INTERVALO_TENTATIVA = 60000;
 
@@ -122,11 +122,11 @@ var $ = function (id) { return document.getElementById(id); };
 
 var Def = {
   get: function (k, d) {
-    try { var v = localStorage.getItem('jatmed.' + k); return v === null ? d : v; }
+    try { var v = localStorage.getItem('indiarec.' + k); return v === null ? d : v; }
     catch (e) { return d; }
   },
-  set: function (k, v) { try { localStorage.setItem('jatmed.' + k, v); } catch (e) {} },
-  del: function (k) { try { localStorage.removeItem('jatmed.' + k); } catch (e) {} }
+  set: function (k, v) { try { localStorage.setItem('indiarec.' + k, v); } catch (e) {} },
+  del: function (k) { try { localStorage.removeItem('indiarec.' + k); } catch (e) {} }
 };
 
 var DB = (function () {
@@ -135,7 +135,7 @@ var DB = (function () {
   function abrir() {
     return new Promise(function (ok, mau) {
       if (bd) return ok(bd);
-      var p = indexedDB.open('jatmed', 1);
+      var p = indexedDB.open('indiarec', 1);
       p.onupgradeneeded = function () {
         var d = p.result;
         if (!d.objectStoreNames.contains('envios')) {
