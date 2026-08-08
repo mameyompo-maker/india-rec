@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12140f">
+<title>JatMed — NBF Tanheia</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+
+<div id="barraEstado">
+  <span id="pontoRede"></span>
+  <span id="estadoTexto">Ligado</span>
+  <span id="contadorFila" hidden>0</span>
+</div>
+
+<main>
+
+<!-- ------------------------------------------------------ 0. activação ---- -->
+<section class="ecra" id="ecraActivacao" hidden>
+  <h1>Activar aparelho</h1>
+  <p class="sub">Só é preciso uma vez em cada telemóvel.</p>
+
+  <label class="campo" for="inpCodigo">Código de activação</label>
+  <input type="text" id="inpCodigo" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+  <div class="aviso" id="avisoActivacao" hidden></div>
+  <button class="btn" id="btnActivar">Activar</button>
+</section>
+
+<!-- --------------------------------------------------------- 1. entrada ---- -->
+<section class="ecra" id="ecraEntrada" hidden>
+  <h1>JatMed</h1>
+  <p class="sub">NBF (Tanheia) 26 — registo de medições</p>
+
+  <label class="campo" for="inpNome">O seu nome</label>
+  <input type="text" id="inpNome" autocomplete="name" autocapitalize="words">
+
+  <button class="btn" id="btnEntrar">Continuar</button>
+  <button class="ligacao" id="ligDesactivar">Desactivar este aparelho</button>
+</section>
+
+<!-- ---------------------------------------------------- 2. levantamento ---- -->
+<section class="ecra" id="ecraLevantamento" hidden>
+  <h1>Que levantamento vai fazer?</h1>
+  <p class="sub" id="ola"></p>
+
+  <button class="cartao" data-modo="crescimento">
+    <b>Crescimento</b>
+    <span>Altura, copa, cachos de frutos e flores — colunas F a K.
+    Repete-se de seis em seis meses.</span>
+  </button>
+
+  <button class="cartao" data-modo="descritores">
+    <b>Descritores morfológicos</b>
+    <span>Hábito, folha, cores, fruto e semente — colunas L a X.</span>
+  </button>
+
+  <button class="ligacao" id="ligVerEnvios">Ver registos deste aparelho</button>
+  <button class="ligacao" id="ligTrocarNome">Trocar de utilizador</button>
+</section>
+
+<!-- ----------------------------------------------------------- 3. ronda ---- -->
+<section class="ecra" id="ecraRonda" hidden>
+  <h1>Ronda do levantamento</h1>
+  <p class="sub">Identifica esta campanha de medição. Fica gravado no aparelho —
+  só precisa de mudar quando começar uma ronda nova.</p>
+
+  <label class="campo" for="inpRonda">Nome da ronda</label>
+  <input type="text" id="inpRonda" autocomplete="off" placeholder="ex.: 11 month after planting (20261111)">
+
+  <div class="aviso">Se esta ronda ainda não existir na folha de cálculo, são criadas
+  seis colunas novas no fim da folha. Os dados antigos não são tocados.</div>
+
+  <button class="btn" id="btnRonda">Continuar</button>
+  <button class="ligacao" data-voltar="ecraLevantamento">Voltar</button>
+</section>
+
+<!-- ---------------------------------------------------------- 4. planta ---- -->
+<section class="ecra" id="ecraPlanta" hidden>
+  <h1>Escolher a planta</h1>
+  <p class="sub" id="subPlanta"></p>
+
+  <h2>Fileira</h2>
+  <div class="grelhaFileiras" id="grelhaFileiras"></div>
+
+  <h2>Número na fileira</h2>
+  <div id="visorNumero" class="vazio">—</div>
+  <div id="resolvidoPlanta" hidden></div>
+  <div class="teclado" id="teclado">
+    <button data-t="1">1</button><button data-t="2">2</button><button data-t="3">3</button>
+    <button data-t="4">4</button><button data-t="5">5</button><button data-t="6">6</button>
+    <button data-t="7">7</button><button data-t="8">8</button><button data-t="9">9</button>
+    <button class="aux" data-t="limpar">Limpar</button>
+    <button data-t="0">0</button>
+    <button class="aux" data-t="apagar">←</button>
+  </div>
+
+  <button class="btn" id="btnPlanta" disabled>Continuar</button>
+  <button class="ligacao" data-voltar="ecraLevantamento">Voltar</button>
+</section>
+
+<!-- ------------------------------------------------------ 5. formulário ---- -->
+<section class="ecra" id="ecraFormulario" hidden>
+  <h1 id="tituloForm"></h1>
+  <p class="sub" id="subForm"></p>
+  <div id="camposForm"></div>
+
+  <button class="ligacao" id="ligTrocarPlanta">Trocar de planta</button>
+
+  <div class="barraFundo">
+    <button class="btn" id="btnEnviar">Guardar e enviar</button>
+  </div>
+</section>
+
+<!-- --------------------------------------------------------- 6. registos ---- -->
+<section class="ecra" id="ecraEnvios" hidden>
+  <h1>Registos deste aparelho</h1>
+  <p class="sub" id="subEnvios"></p>
+  <ul class="listaEnvios" id="listaEnvios"></ul>
+  <button class="btn secundario" id="btnForcarEnvio">Tentar enviar agora</button>
+  <button class="ligacao" data-voltar="ecraLevantamento">Voltar</button>
+</section>
+
+</main>
+
+<div id="brinde" hidden></div>
+
+<!-- ------------------------------------------------ diálogo: campos vazios -- -->
+<dialog id="dlgIncompleto">
+  <h3>Faltam valores</h3>
+  <p>Estes campos ficaram por preencher:</p>
+  <ul id="listaVazios"></ul>
+  <p>Pode enviar assim mesmo — as células vazias não são escritas na folha.</p>
+  <div class="dialogoBotoes">
+    <button class="btn secundario" id="btnVoltarPreencher">Voltar</button>
+    <button class="btn" id="btnEnviarAssim">Enviar assim</button>
+  </div>
+</dialog>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

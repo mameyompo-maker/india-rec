@@ -1,0 +1,17 @@
+{
+  "name": "JatMed — NBF Tanheia",
+  "short_name": "JatMed",
+  "description": "Registo de medições de Jatropha no campo, funciona sem rede.",
+  "lang": "pt",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12140f",
+  "theme_color": "#12140f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
