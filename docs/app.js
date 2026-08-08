@@ -530,16 +530,42 @@ function desenharEcraProgresso() {
 
 // ------------------------------------------------------------------ plantas
 
+/* O plants.json só traz os dois blocos (fileiras e lotes); as 398 plantas são
+ * expandidas aqui. Poupa ~46 kB de transferência e de espaço no telemóvel. */
 function carregarPlantas() {
   return fetch('plants.json').then(function (r) { return r.json(); }).then(function (j) {
-    S.plantas = j.plantas;
+    function expandir(blocos, campo) {
+      var out = [];
+      blocos.forEach(function (b) {
+        for (var i = 1; i <= b.count; i++) out.push([b[campo], i]);
+      });
+      return out;
+    }
+
+    var fil = expandir(j.fileiras, 'row');
+    var lot = expandir(j.lotes, 'source');
+    if (fil.length !== j.total || lot.length !== j.total) {
+      throw new Error('plants.json inconsistente');
+    }
+
     S.fileiras = j.fileiras;
     S.porFileira = {};
     S.porSeq = {};
-    j.plantas.forEach(function (p) {
+
+    for (var k = 0; k < j.total; k++) {
+      var seq = k + 1;
+      var p = {
+        seq: seq,
+        pid: j.prefixo + ('00' + seq).slice(-3),
+        sheetRow: j.primeiraLinha + k,
+        row: fil[k][0],
+        noFileira: fil[k][1],
+        source: lot[k][0],
+        noFolha: lot[k][1]
+      };
       (S.porFileira[p.row] = S.porFileira[p.row] || [])[p.noFileira] = p;
-      S.porSeq[p.seq] = p;
-    });
+      S.porSeq[seq] = p;
+    }
   });
 }
 

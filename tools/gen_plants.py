@@ -11,6 +11,9 @@ Estrutura verificada em 2026-08-08 lendo Data!A3:D400 (398 plantas, linhas 3..40
 Por isso (fileira, No. da folha) NAO e unico: 323 pares unicos para 398 plantas.
 O app usa 'noFileira' = posicao dentro da fileira (1..N), que e unico por construcao,
 e mostra tambem 'noFolha' + 'source' para o utilizador poder conferir no terreno.
+
+O ficheiro gerado guarda so os DOIS blocos (fileiras e lotes). O app expande-os em
+memoria no arranque -- 398 objectos escritos a mao ocupavam 47 kB, isto ocupa <1 kB.
 """
 
 import json
@@ -36,64 +39,46 @@ SOURCE_BLOCKS = [
 ]
 
 TOTAL = 398
-FIRST_SHEET_ROW = 3
-PLANT_ID_FMT = "NBF(Tanheia)26-{:03d}"
+PRIMEIRA_LINHA = 3
+PREFIXO = "NBF(Tanheia)26-"
 
 
-def expand(blocks):
-    """[(rotulo, n), ...] -> [(rotulo, posicao_dentro_do_bloco), ...] de comprimento TOTAL."""
-    out = []
-    for label, n in blocks:
+def verificar():
+    """Confirma que os blocos batem certo e que a chave do app e unica."""
+    assert sum(n for _, n in ROW_BLOCKS) == TOTAL, "as fileiras nao somam 398"
+    assert sum(n for _, n in SOURCE_BLOCKS) == TOTAL, "os lotes nao somam 398"
+
+    chaves = set()
+    seq = 0
+    for label, n in ROW_BLOCKS:
         for i in range(1, n + 1):
-            out.append((label, i))
-    return out
+            seq += 1
+            chaves.add((label, i))
+    assert len(chaves) == TOTAL, "(fileira, noFileira) nao e unico"
+    return seq
 
 
 def main():
-    rows = expand(ROW_BLOCKS)
-    sources = expand(SOURCE_BLOCKS)
-
-    assert len(rows) == TOTAL, f"fileiras somam {len(rows)}, esperado {TOTAL}"
-    assert len(sources) == TOTAL, f"lotes somam {len(sources)}, esperado {TOTAL}"
-
-    plants = []
-    for idx in range(TOTAL):
-        seq = idx + 1
-        row_label, no_fileira = rows[idx]
-        source, no_folha = sources[idx]
-        plants.append({
-            "seq": seq,                          # 1..398 (sufixo do Plant ID)
-            "pid": PLANT_ID_FMT.format(seq),     # coluna A
-            "sheetRow": FIRST_SHEET_ROW + idx,   # linha real na folha Data
-            "row": row_label,                    # coluna B (preenchida por arrasto)
-            "noFileira": no_fileira,             # posicao dentro da fileira -> chave do app
-            "noFolha": no_folha,                 # coluna C tal como esta na folha
-            "source": source,                    # coluna D (preenchida por arrasto)
-        })
-
-    # chave do app tem de ser unica
-    keys = {(p["row"], p["noFileira"]) for p in plants}
-    assert len(keys) == TOTAL, f"(fileira, noFileira) nao e unico: {len(keys)}/{TOTAL}"
-
-    rows_meta = [{"row": label, "count": n} for label, n in ROW_BLOCKS]
+    seq = verificar()
+    assert seq == TOTAL
 
     payload = {
         "geradoEm": "2026-08-08",
         "folha": "Data",
         "spreadsheetId": "1WSfQdkMdy_cton-Za6TGzRmpSi1cjycWqHfMCS_cDXQ",
         "total": TOTAL,
-        "fileiras": rows_meta,
-        "plantas": plants,
+        "prefixo": PREFIXO,
+        "primeiraLinha": PRIMEIRA_LINHA,
+        "fileiras": [{"row": r, "count": n} for r, n in ROW_BLOCKS],
+        "lotes": [{"source": s, "count": n} for s, n in SOURCE_BLOCKS],
     }
 
     out = Path(__file__).resolve().parent.parent / "docs" / "plants.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
-    print(f"OK: {out}  ({out.stat().st_size:,} bytes, {TOTAL} plantas)")
-    for p in (plants[0], plants[34], plants[35], plants[315], plants[-1]):
-        print(f"  {p['pid']}  linha={p['sheetRow']}  {p['row']}/{p['noFileira']}"
-              f"  (folha No.={p['noFolha']}, {p['source']})")
+    print(f"OK: {out}  ({out.stat().st_size:,} bytes, {TOTAL} plantas em "
+          f"{len(ROW_BLOCKS)} fileiras e {len(SOURCE_BLOCKS)} lotes)")
 
 
 if __name__ == "__main__":
