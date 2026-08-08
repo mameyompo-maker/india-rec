@@ -18,6 +18,10 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+/* Regras de classe como `.ligacao { display: inline-block }` ganham à folha de
+ * estilo do browser e faziam aparecer elementos marcados com [hidden]. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -70,9 +74,31 @@ body { padding-bottom: env(safe-area-inset-bottom); }
 }
 #contadorFila[hidden] { display: none; }
 
+#crachaAdmin {
+  background: var(--acento);
+  color: #10210a;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .6px;
+  flex: none;
+}
+#crachaAdmin[hidden] { display: none; }
+
 main { padding: 16px 14px 96px; max-width: 640px; margin: 0 auto; }
 
 .ecra[hidden] { display: none; }
+
+/* entrada suave ao trocar de ecrã — curta, para não atrasar o trabalho */
+.ecra { animation: entrar .16s ease-out; }
+@keyframes entrar {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ecra { animation: none; }
+}
 
 h1 { font-size: 22px; margin: 4px 0 18px; }
 h2 { font-size: 18px; margin: 26px 0 10px; color: var(--txt); }
@@ -116,8 +142,9 @@ input.invalido { border-color: var(--erro); }
 .btn.perigo { background: var(--erro); color: #fff; }
 
 .ligacao {
-  display: inline-block;
-  margin-top: 18px;
+  display: block;
+  width: fit-content;
+  margin-top: 14px;
   color: var(--txt2);
   font-size: 15px;
   text-decoration: underline;
@@ -334,3 +361,107 @@ dialog ul { margin: 10px 0; padding-left: 20px; color: var(--aviso); font-size: 
 }
 #brinde[hidden] { display: none; }
 #brinde.mau { background: var(--erro); }
+
+/* ------------------------------------------------------------ progresso */
+
+.minibarra {
+  display: block;
+  height: 7px;
+  margin-top: 12px;
+  background: var(--painel2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.minibarra i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--acento);
+  border-radius: 999px;
+  transition: width .35s ease-out;
+}
+.minitexto { display: block; margin-top: 6px; font-size: 13px; color: var(--txt2); }
+
+.resumo {
+  margin: 6px 0 18px;
+  padding: 16px;
+  background: var(--painel);
+  border-radius: var(--r);
+  text-align: center;
+}
+.resumo .grande { font-size: 34px; font-weight: 800; line-height: 1.1; }
+.resumo .peq { color: var(--txt2); font-size: 14px; margin-top: 4px; }
+.resumo .minibarra { margin-top: 14px; height: 10px; }
+
+.linhaFileira {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  margin-bottom: 8px;
+  background: var(--painel);
+  border-radius: 10px;
+}
+.linhaFileira .nome { font-weight: 700; width: 46px; flex: none; }
+.linhaFileira .minibarra { flex: 1; margin: 0; }
+.linhaFileira .cont { font-size: 13px; color: var(--txt2); width: 62px; text-align: right; flex: none; }
+.linhaFileira.completa .nome::after { content: " ✓"; color: var(--acento); }
+
+.grelhaFileiras button .feito {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: .85;
+}
+.grelhaFileiras button.completa { border-color: var(--acento-esc); }
+.grelhaFileiras button.completa .feito { color: var(--acento); }
+.grelhaFileiras button.activo.completa .feito { color: #10210a; }
+
+/* --------------------------------------------------------------- abas */
+
+.abas { display: flex; gap: 8px; margin: 4px 0 14px; }
+.aba {
+  flex: 1;
+  min-height: 44px;
+  background: var(--painel);
+  border: 2px solid var(--linha);
+  border-radius: var(--r);
+  color: var(--txt2);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.aba.activo { border-color: var(--acento); color: var(--txt); }
+
+.listaEnvios li.tocavel { cursor: pointer; }
+.listaEnvios li.tocavel:active { background: var(--painel2); }
+.listaEnvios .cadeado { opacity: .55; }
+
+/* ------------------------------------------------------ modo administrador */
+
+details#blocoAdmin {
+  margin-top: 22px;
+  padding: 0 14px;
+  background: var(--painel);
+  border: 1px solid var(--linha);
+  border-radius: var(--r);
+}
+details#blocoAdmin summary {
+  padding: 14px 0;
+  color: var(--txt2);
+  font-size: 15px;
+  cursor: pointer;
+}
+details#blocoAdmin[open] { padding-bottom: 16px; }
+
+#rondasConhecidas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+#rondasConhecidas button {
+  padding: 9px 13px;
+  background: var(--painel2);
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  color: var(--txt2);
+  font-size: 13px;
+  cursor: pointer;
+}
+#rondasConhecidas button:active { border-color: var(--acento); color: var(--txt); }

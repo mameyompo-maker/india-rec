@@ -7,6 +7,7 @@
 <title>India Rec — NBF Tanheia</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="styles.css">
+<link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,6 +17,7 @@
 <div id="barraEstado">
   <span id="pontoRede"></span>
   <span id="estadoTexto">Ligado</span>
+  <span id="crachaAdmin" hidden>ADMIN</span>
   <span id="contadorFila" hidden>0</span>
 </div>
 
@@ -42,6 +44,16 @@
   <input type="text" id="inpNome" autocomplete="name" autocapitalize="words">
 
   <button class="btn" id="btnEntrar">Continuar</button>
+
+  <details id="blocoAdmin">
+    <summary>Modo administrador</summary>
+    <label class="campo" for="inpAdmin">Palavra-passe</label>
+    <input type="password" id="inpAdmin" autocomplete="off">
+    <div class="aviso" id="avisoAdmin" hidden></div>
+    <button class="btn secundario" id="btnAdmin">Entrar como administrador</button>
+  </details>
+
+  <button class="ligacao" id="ligSairAdmin" hidden>Sair do modo administrador</button>
   <button class="ligacao" id="ligDesactivar">Desactivar este aparelho</button>
 </section>
 
@@ -54,14 +66,19 @@
     <b>Crescimento</b>
     <span>Altura, copa, cachos de frutos e flores — colunas F a K.
     Repete-se de seis em seis meses.</span>
+    <span class="minibarra" data-barra="crescimento"><i></i></span>
+    <span class="minitexto" data-texto="crescimento"></span>
   </button>
 
   <button class="cartao" data-modo="descritores">
     <b>Descritores morfológicos</b>
     <span>Hábito, folha, cores, fruto e semente — colunas L a X.</span>
+    <span class="minibarra" data-barra="descritores"><i></i></span>
+    <span class="minitexto" data-texto="descritores"></span>
   </button>
 
-  <button class="ligacao" id="ligVerEnvios">Ver registos deste aparelho</button>
+  <button class="ligacao" id="ligProgresso">Ver progresso por fileira</button>
+  <button class="ligacao" id="ligHistorico">Registos e correcções</button>
   <button class="ligacao" id="ligTrocarNome">Trocar de utilizador</button>
 </section>
 
@@ -73,6 +90,7 @@
 
   <label class="campo" for="inpRonda">Nome da ronda</label>
   <input type="text" id="inpRonda" autocomplete="off" placeholder="ex.: 11 month after planting (20261111)">
+  <div id="rondasConhecidas"></div>
 
   <div class="aviso">Se esta ronda ainda não existir na folha de cálculo, são criadas
   seis colunas novas no fim da folha. Os dados antigos não são tocados.</div>
@@ -102,6 +120,7 @@
   </div>
 
   <button class="btn" id="btnPlanta" disabled>Continuar</button>
+  <button class="ligacao" id="ligProximaPorFazer">Saltar para a próxima por fazer</button>
   <button class="ligacao" data-voltar="ecraLevantamento">Voltar</button>
 </section>
 
@@ -109,6 +128,7 @@
 <section class="ecra" id="ecraFormulario" hidden>
   <h1 id="tituloForm"></h1>
   <p class="sub" id="subForm"></p>
+  <div id="avisoEdicao" class="aviso" hidden></div>
   <div id="camposForm"></div>
 
   <button class="ligacao" id="ligTrocarPlanta">Trocar de planta</button>
@@ -118,11 +138,28 @@
   </div>
 </section>
 
-<!-- --------------------------------------------------------- 6. registos ---- -->
-<section class="ecra" id="ecraEnvios" hidden>
-  <h1>Registos deste aparelho</h1>
-  <p class="sub" id="subEnvios"></p>
-  <ul class="listaEnvios" id="listaEnvios"></ul>
+<!-- -------------------------------------------------------- 6. progresso ---- -->
+<section class="ecra" id="ecraProgresso" hidden>
+  <h1>Progresso</h1>
+  <p class="sub" id="subProgresso"></p>
+  <div id="totalProgresso"></div>
+  <div id="listaFileiras"></div>
+  <button class="btn secundario" id="btnActualizarProgresso">Actualizar</button>
+  <button class="ligacao" data-voltar="ecraLevantamento">Voltar</button>
+</section>
+
+<!-- -------------------------------------------------------- 7. histórico ---- -->
+<section class="ecra" id="ecraHistorico" hidden>
+  <h1>Registos</h1>
+  <p class="sub" id="subHistorico"></p>
+
+  <div class="abas" id="abasHistorico">
+    <button class="aba activo" data-aba="aparelho">Neste aparelho</button>
+    <button class="aba" data-aba="todos">Todos</button>
+  </div>
+
+  <ul class="listaEnvios" id="listaHistorico"></ul>
+
   <button class="btn secundario" id="btnForcarEnvio">Tentar enviar agora</button>
   <button class="ligacao" data-voltar="ecraLevantamento">Voltar</button>
 </section>

@@ -3,7 +3,7 @@
  * IMPORTANTE: subir CACHE sempre que se altera qualquer ficheiro em docs/,
  * caso contrário os telemóveis continuam a usar a versão antiga.
  */
-var CACHE = 'indiarec-v1';
+var CACHE = 'indiarec-v2';
 
 var FICHEIROS = [
   './',
@@ -15,8 +15,16 @@ var FICHEIROS = [
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
-  './icon-180.png'
+  './icon-180.png',
+  './favicon.png'
 ];
+
+/* Só estes é que podem sair da cache. Tudo o resto — em especial as chamadas ao
+ * Apps Script — tem de ir sempre à rede, senão a aplicação passa a ver dados
+ * congelados (progresso, histórico) sem dar por isso. */
+var CACHEAVEIS = FICHEIROS.map(function (f) {
+  return new URL(f, self.registration.scope).pathname;
+});
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
@@ -38,14 +46,18 @@ self.addEventListener('activate', function (e) {
 
 self.addEventListener('fetch', function (e) {
   var req = e.request;
-  if (req.method !== 'GET') return;                       // POSTs vão sempre à rede
-  if (new URL(req.url).origin !== self.location.origin) return;
+  if (req.method !== 'GET') return;
 
-  // cache-first: o que está instalado tem de arrancar sem rede nenhuma
+  var url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;      // o endpoint vive noutro domínio
+
+  var navegacao = req.mode === 'navigate';
+  if (!navegacao && CACHEAVEIS.indexOf(url.pathname) === -1) return;   // API: sempre rede
+
   e.respondWith(
-    caches.match(req).then(function (guardado) {
+    caches.match(navegacao ? './index.html' : req).then(function (guardado) {
       if (guardado) {
-        // actualiza em segundo plano para a próxima abertura
+        // actualiza em segundo plano, para a próxima abertura
         fetch(req).then(function (r) {
           if (r && r.ok) caches.open(CACHE).then(function (c) { c.put(req, r.clone()); });
         }).catch(function () {});

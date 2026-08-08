@@ -1,10 +1,13 @@
 /**
- * India Rec — endpoint de escrita para a folha de calculo NBF(Tanheia) 26.
+ * India Rec — endpoint de leitura/escrita para a folha de calculo NBF(Tanheia) 26.
  *
  * Implanta como: Implementar > Nova implementacao > Aplicacao web
  *   - Executar como      : Eu (dono da folha)
  *   - Quem tem acesso    : Qualquer pessoa
- * O segredo partilhado (TOKEN) e o que impede escritas de estranhos.
+ *
+ * Propriedades do script (Definicoes do projeto > Propriedades do script):
+ *   TOKEN           — codigo de activacao que cada telemovel escreve uma vez
+ *   ADMIN_PASSWORD  — palavra-passe do modo administrador
  *
  * O cliente envia POST com Content-Type: text/plain para evitar o preflight CORS
  * (o Apps Script nao responde a OPTIONS). O corpo e JSON.
@@ -15,25 +18,23 @@
 var SPREADSHEET_ID = '1WSfQdkMdy_cton-Za6TGzRmpSi1cjycWqHfMCS_cDXQ';
 var FOLHA_DADOS = 'Data';
 var FOLHA_LOG = 'Log';
-
-/** Definido em Definicoes do projeto > Propriedades do script > TOKEN. */
-function getToken() {
-  return PropertiesService.getScriptProperties().getProperty('TOKEN') || '';
-}
+var FUSO = 'Africa/Maputo';
 
 var LINHA_PRIMEIRA_PLANTA = 3;   // Data!A3 = NBF(Tanheia)26-001
 var TOTAL_PLANTAS = 398;
 
+function prop_(nome, porOmissao) {
+  var v = PropertiesService.getScriptProperties().getProperty(nome);
+  return (v === null || v === '') ? porOmissao : v;
+}
+function getToken() { return prop_('TOKEN', ''); }
+function getAdminPassword() { return prop_('ADMIN_PASSWORD', 'IndiaRec2026'); }
+
 /**
- * Como os valores de escolha ficam gravados na folha.
- * A folha e um conjunto de dados em ingles (cabecalhos em ingles), por isso
- * gravamos em ingles e mostramos portugues no ecra. Para gravar em portugues,
- * troque os valores da direita.
+ * Como os valores de escolha ficam gravados na folha. A folha e um conjunto de
+ * dados em ingles, por isso gravamos em ingles e mostramos portugues no ecra.
  */
-var VALOR_HABITO = {
-  horizontal: 'Horizontal',
-  vertical: 'Vertical'
-};
+var VALOR_HABITO = { horizontal: 'Horizontal', vertical: 'Vertical' };
 var VALOR_COR = {
   verdeClaro: 'Light green',
   verdeMedio: 'Medium green',
@@ -41,7 +42,6 @@ var VALOR_COR = {
   vermelho: 'Red'
 };
 
-/** Campos do levantamento de crescimento -> coluna na folha Data. */
 var CAMPOS_CRESCIMENTO = [
   { chave: 'alturaPlanta',  col: 6,  rotulo: 'Altura da planta (m)',            tipo: 'num' },
   { chave: 'cnp1',          col: 7,  rotulo: 'Cnp-1 (m)',                       tipo: 'num' },
@@ -51,7 +51,6 @@ var CAMPOS_CRESCIMENTO = [
   { chave: 'cachosBotoes',  col: 11, rotulo: 'Cachos de botões florais (n.º)',  tipo: 'int' }
 ];
 
-/** Campos dos descritores morfologicos -> coluna na folha Data (L..X). */
 var CAMPOS_DESCRITORES = [
   { chave: 'habitoCrescimento',  col: 12, rotulo: 'Hábito de crescimento',              tipo: 'habito' },
   { chave: 'limboFoliar',        col: 13, rotulo: 'Limbo foliar (cm)',                  tipo: 'num' },
@@ -68,23 +67,35 @@ var CAMPOS_DESCRITORES = [
   { chave: 'sementeLargura',     col: 24, rotulo: 'Largura da semente (cm)',            tipo: 'num' }
 ];
 
-/** Cabecalho da folha Log (A..AG). A ordem TEM de bater certo com montarLinhaLog_(). */
+var TODOS_CAMPOS = CAMPOS_CRESCIMENTO.concat(CAMPOS_DESCRITORES);
+
+/** Cabecalho da folha Log (A..AI = 35 colunas). A ordem manda em montarLinhaLog_(). */
 var CABECALHO_LOG = [
-  'Data/hora (aparelho)', 'Data/hora (servidor)', 'Registado por', 'Levantamento', 'Ronda',
-  'Plant ID', 'Fileira', 'N.º na fileira', 'N.º na folha', 'Lote', 'Linha em Data'
+  'Data/hora (aparelho)', 'Data/hora (servidor)', 'Registado por', 'Acção',
+  'Levantamento', 'Ronda', 'Plant ID', 'Fileira', 'N.º na fileira', 'N.º na folha',
+  'Lote', 'Linha em Data'
 ].concat(
-  CAMPOS_CRESCIMENTO.map(function (c) { return c.rotulo; }),
-  CAMPOS_DESCRITORES.map(function (c) { return c.rotulo; }),
-  ['ID do envio', 'Aparelho', 'Estado']
+  TODOS_CAMPOS.map(function (c) { return c.rotulo; }),
+  ['ID do envio', 'Substitui o envio', 'Aparelho', 'Estado']
 );
 
-var COL_LOG_UUID = CABECALHO_LOG.length - 2;   // 1-based: ver escreverLog_
+// indices 1-based dentro da folha Log
+var COL_RECORDER = 3;
+var COL_ACCAO = 4;
+var COL_LEVANTAMENTO = 5;
+var COL_RONDA = 6;
+var COL_PID = 7;
+var COL_PRIMEIRO_CAMPO = 13;                       // M
+var COL_UUID = 12 + TODOS_CAMPOS.length + 1;       // AF = 32
+var COL_SUBSTITUI = COL_UUID + 1;                  // AG
+var COL_ESTADO = COL_UUID + 3;                     // AI
+
+var ROTULO_MODO = { crescimento: 'Crescimento (F-K)', descritores: 'Descritores (L-X)' };
 
 // ---------------------------------------------------------------- utilitarios
 
 function jsonOut_(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
+  return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -98,6 +109,17 @@ function letraColuna_(n) {
   return s;
 }
 
+function agora_() { return Utilities.formatDate(new Date(), FUSO, 'yyyy-MM-dd HH:mm:ss'); }
+
+function camposDoModo_(modo) {
+  return modo === 'crescimento' ? CAMPOS_CRESCIMENTO : CAMPOS_DESCRITORES;
+}
+
+/** Chave que identifica um registo: mesmo levantamento + ronda + planta. */
+function chave_(modo, ronda, pid) {
+  return modo + '|' + (modo === 'crescimento' ? String(ronda || '') : '') + '|' + pid;
+}
+
 /** Converte o valor bruto do cliente no valor a gravar. null = nao escrever. */
 function normalizar_(campo, bruto) {
   if (bruto === null || bruto === undefined) return null;
@@ -106,42 +128,46 @@ function normalizar_(campo, bruto) {
 
   if (campo.tipo === 'num' || campo.tipo === 'int') {
     var n = Number(s.replace(',', '.'));
-    if (!isFinite(n)) throw new Error('Valor nao numerico em "' + campo.rotulo + '": ' + s);
+    if (!isFinite(n)) throw new Error('Valor não numérico em "' + campo.rotulo + '": ' + s);
     if (campo.tipo === 'int' && Math.round(n) !== n) {
-      throw new Error('"' + campo.rotulo + '" tem de ser um numero inteiro: ' + s);
+      throw new Error('"' + campo.rotulo + '" tem de ser um número inteiro: ' + s);
     }
-    if (n < 0) throw new Error('"' + campo.rotulo + '" nao pode ser negativo: ' + s);
+    if (n < 0) throw new Error('"' + campo.rotulo + '" não pode ser negativo: ' + s);
     return n;
   }
   if (campo.tipo === 'habito') {
-    if (!VALOR_HABITO.hasOwnProperty(s)) throw new Error('Habito invalido: ' + s);
+    if (!VALOR_HABITO.hasOwnProperty(s)) throw new Error('Hábito inválido: ' + s);
     return VALOR_HABITO[s];
   }
   if (campo.tipo === 'cor') {
-    if (!VALOR_COR.hasOwnProperty(s)) throw new Error('Cor invalida: ' + s);
+    if (!VALOR_COR.hasOwnProperty(s)) throw new Error('Cor inválida: ' + s);
     return VALOR_COR[s];
   }
   return s;
 }
 
+/** Caminho inverso: valor da folha -> chave usada no ecra. */
+function desnormalizar_(campo, valor) {
+  if (valor === '' || valor === null || valor === undefined) return undefined;
+  if (campo.tipo === 'habito' || campo.tipo === 'cor') {
+    var mapa = campo.tipo === 'habito' ? VALOR_HABITO : VALOR_COR;
+    for (var k in mapa) if (mapa[k] === String(valor)) return k;
+    return undefined;
+  }
+  var n = Number(valor);
+  return isFinite(n) ? n : undefined;
+}
+
 // ---------------------------------------------------------- blocos de ronda
 
-/**
- * Devolve a coluna inicial (1-based) do bloco de 6 colunas do levantamento de
- * crescimento para a ronda indicada. Procura o rotulo na linha 1; se nao existir,
- * acrescenta um bloco novo no fim da folha com o cabecalho de 2 linhas.
- */
 function colunaBlocoRonda_(folha, ronda) {
   var ultima = folha.getLastColumn();
   var linha1 = folha.getRange(1, 1, 1, ultima).getValues()[0];
 
   for (var i = 0; i < linha1.length; i++) {
-    if (String(linha1[i]).trim() !== '' && String(linha1[i]).trim() === ronda) {
-      return i + 1;
-    }
+    if (String(linha1[i]).trim() !== '' && String(linha1[i]).trim() === ronda) return i + 1;
   }
 
-  // Bloco novo: 6 colunas a seguir a ultima coluna usada.
   var inicio = ultima + 1;
   var precisa = inicio + 5;
   if (folha.getMaxColumns() < precisa) {
@@ -167,23 +193,45 @@ function garantirLog_(ss) {
   var atual = log.getRange(1, 1, 1, CABECALHO_LOG.length).getValues()[0];
   var igual = atual.every(function (v, i) { return String(v) === CABECALHO_LOG[i]; });
   if (!igual) {
-    log.getRange(1, 1, 1, CABECALHO_LOG.length).setValues([CABECALHO_LOG]);
-    log.getRange(1, 1, 1, CABECALHO_LOG.length).setFontWeight('bold');
+    log.getRange(1, 1, 1, CABECALHO_LOG.length).setValues([CABECALHO_LOG]).setFontWeight('bold');
     log.setFrozenRows(1);
   }
   return log;
 }
 
-function uuidsJaGravados_(log) {
+/**
+ * Le a folha Log uma so vez e devolve:
+ *   uuids     — todos os IDs de envio ja gravados (deduplicacao)
+ *   porChave  — ultimo registo valido de cada planta/levantamento/ronda
+ */
+function lerIndice_(log) {
   var n = log.getLastRow();
-  var set = {};
-  if (n < 2) return set;
-  var vals = log.getRange(2, COL_LOG_UUID, n - 1, 1).getValues();
-  for (var i = 0; i < vals.length; i++) {
-    var v = String(vals[i][0]).trim();
-    if (v) set[v] = true;
+  var idx = { uuids: {}, porChave: {} };
+  if (n < 2) return idx;
+
+  var meta = log.getRange(2, COL_RECORDER, n - 1, COL_PID - COL_RECORDER + 1).getValues();
+  var ids = log.getRange(2, COL_UUID, n - 1, 1).getValues();
+  var estados = log.getRange(2, COL_ESTADO, n - 1, 1).getValues();
+
+  for (var i = 0; i < meta.length; i++) {
+    var uuid = String(ids[i][0]).trim();
+    if (uuid) idx.uuids[uuid] = true;
+
+    if (String(estados[i][0]).indexOf('OK') !== 0) continue;   // linhas de erro nao contam
+
+    var recorder = String(meta[i][0]).trim();
+    var levant = String(meta[i][2]).trim();
+    var ronda = String(meta[i][3]).trim();
+    var pid = String(meta[i][4]).trim();
+    if (!pid) continue;
+
+    var modo = (levant === ROTULO_MODO.crescimento) ? 'crescimento' : 'descritores';
+    // linhas mais recentes sobrepoem-se as antigas
+    idx.porChave[chave_(modo, ronda, pid)] = {
+      recorder: recorder, uuid: uuid, linha: i + 2, modo: modo, ronda: ronda, pid: pid
+    };
   }
-  return set;
+  return idx;
 }
 
 // ---------------------------------------------------------------- doPost
@@ -193,7 +241,7 @@ function doPost(e) {
   try {
     lock.waitLock(30000);
   } catch (err) {
-    return jsonOut_({ ok: false, erro: 'Servidor ocupado, tente novamente.' });
+    return jsonOut_({ ok: false, erro: 'Servidor ocupado, tente outra vez.' });
   }
 
   try {
@@ -201,29 +249,28 @@ function doPost(e) {
     try {
       pedido = JSON.parse(e.postData.contents);
     } catch (err) {
-      return jsonOut_({ ok: false, erro: 'JSON invalido.' });
+      return jsonOut_({ ok: false, erro: 'JSON inválido.' });
     }
 
-    var token = getToken();
-    if (!token || pedido.token !== token) {
-      return jsonOut_({ ok: false, erro: 'Nao autorizado.' });
+    if (!getToken() || pedido.token !== getToken()) {
+      return jsonOut_({ ok: false, erro: 'Não autorizado.' });
     }
 
+    var admin = pedido.adminPassword && pedido.adminPassword === getAdminPassword();
     var entradas = pedido.entries || [];
     if (!entradas.length) return jsonOut_({ ok: true, resultados: [] });
 
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     var dados = ss.getSheetByName(FOLHA_DADOS);
     var log = garantirLog_(ss);
-    var jaGravados = uuidsJaGravados_(log);
+    var idx = lerIndice_(log);
 
     var linhasLog = [];
     var resultados = [];
 
     for (var i = 0; i < entradas.length; i++) {
-      var r = processarEntrada_(dados, entradas[i], jaGravados, linhasLog);
+      var r = processarEntrada_(dados, entradas[i], idx, admin, linhasLog);
       resultados.push(r);
-      if (r.ok && r.uuid) jaGravados[r.uuid] = true;
     }
 
     if (linhasLog.length) {
@@ -240,10 +287,10 @@ function doPost(e) {
   }
 }
 
-function processarEntrada_(dados, ent, jaGravados, linhasLog) {
+function processarEntrada_(dados, ent, idx, admin, linhasLog) {
   var uuid = String(ent.uuid || '').trim();
   if (!uuid) return { ok: false, uuid: '', erro: 'Falta o ID do envio.' };
-  if (jaGravados[uuid]) return { ok: true, uuid: uuid, duplicado: true };
+  if (idx.uuids[uuid]) return { ok: true, uuid: uuid, duplicado: true };
 
   try {
     var seq = Number(ent.seq);
@@ -252,32 +299,38 @@ function processarEntrada_(dados, ent, jaGravados, linhasLog) {
     var linha = LINHA_PRIMEIRA_PLANTA + seq - 1;
     var pidFolha = String(dados.getRange(linha, 1).getValue()).trim();
     if (ent.pid && pidFolha && pidFolha !== String(ent.pid).trim()) {
-      throw new Error('Plant ID nao corresponde (folha: ' + pidFolha + ', envio: ' + ent.pid + ').');
+      throw new Error('Plant ID não corresponde (folha: ' + pidFolha + ', envio: ' + ent.pid + ').');
     }
 
     var modo = String(ent.mode || '');
-    var campos, colBase;
-    if (modo === 'crescimento') {
-      campos = CAMPOS_CRESCIMENTO;
-      var ronda = String(ent.ronda || '').trim();
-      if (!ronda) throw new Error('Falta a ronda do levantamento.');
-      colBase = colunaBlocoRonda_(dados, ronda);
-    } else if (modo === 'descritores') {
-      campos = CAMPOS_DESCRITORES;
-      colBase = null;   // colunas fixas L..X
-    } else {
+    if (modo !== 'crescimento' && modo !== 'descritores') {
       throw new Error('Levantamento desconhecido: ' + modo);
     }
+    var campos = camposDoModo_(modo);
+    var ronda = String(ent.ronda || '').trim();
+    if (modo === 'crescimento' && !ronda) throw new Error('Falta a ronda do levantamento.');
 
-    // Normaliza tudo antes de escrever, para nao deixar escritas a meio.
+    // quem e o dono do registo actual desta planta?
+    var anterior = idx.porChave[chave_(modo, ronda, pidFolha)];
+    var accao = anterior ? 'Correcção' : 'Registo';
+    if (anterior && !admin) {
+      var meu = String(ent.recorder || '').trim();
+      if (anterior.recorder && anterior.recorder !== meu) {
+        throw new Error('Esta planta foi registada por ' + anterior.recorder +
+                        '. Só essa pessoa (ou um administrador) a pode corrigir.');
+      }
+    }
+
+    var colBase = (modo === 'crescimento') ? colunaBlocoRonda_(dados, ronda) : null;
+
+    // normaliza tudo antes de escrever, para nao deixar escritas a meio
     var valores = ent.values || {};
     var escritas = [];
     for (var i = 0; i < campos.length; i++) {
       var c = campos[i];
       var v = normalizar_(c, valores[c.chave]);
       if (v !== null) {
-        var col = (colBase === null) ? c.col : (colBase + i);
-        escritas.push({ col: col, valor: v, chave: c.chave });
+        escritas.push({ col: (colBase === null) ? c.col : (colBase + i), valor: v });
       }
     }
     if (!escritas.length) throw new Error('Nenhum valor preenchido.');
@@ -286,27 +339,31 @@ function processarEntrada_(dados, ent, jaGravados, linhasLog) {
       dados.getRange(linha, escritas[j].col).setValue(escritas[j].valor);
     }
 
-    linhasLog.push(montarLinhaLog_(ent, uuid, linha, 'OK'));
+    linhasLog.push(montarLinhaLog_(ent, uuid, linha, accao, 'OK'));
+    idx.uuids[uuid] = true;
+    idx.porChave[chave_(modo, ronda, pidFolha)] = {
+      recorder: String(ent.recorder || '').trim(), uuid: uuid, modo: modo, ronda: ronda, pid: pidFolha
+    };
+
     return {
-      ok: true,
-      uuid: uuid,
-      linha: linha,
+      ok: true, uuid: uuid, linha: linha, accao: accao,
       celulas: escritas.map(function (x) { return letraColuna_(x.col) + linha; })
     };
   } catch (err) {
     var msg = String(err && err.message || err);
-    linhasLog.push(montarLinhaLog_(ent, uuid, '', 'ERRO: ' + msg));
+    linhasLog.push(montarLinhaLog_(ent, uuid, '', 'Registo', 'ERRO: ' + msg));
     return { ok: false, uuid: uuid, erro: msg };
   }
 }
 
-function montarLinhaLog_(ent, uuid, linhaDados, estado) {
+function montarLinhaLog_(ent, uuid, linhaDados, accao, estado) {
   var v = ent.values || {};
   var linha = [
     ent.tsLocal || '',
-    Utilities.formatDate(new Date(), 'Africa/Maputo', 'yyyy-MM-dd HH:mm:ss'),
+    agora_(),
     ent.recorder || '',
-    ent.mode === 'crescimento' ? 'Crescimento (F-K)' : 'Descritores (L-X)',
+    accao,
+    ROTULO_MODO[ent.mode] || String(ent.mode || ''),
     ent.ronda || '',
     ent.pid || '',
     ent.row || '',
@@ -316,69 +373,162 @@ function montarLinhaLog_(ent, uuid, linhaDados, estado) {
     linhaDados
   ];
 
-  // Os 19 campos, sempre pela mesma ordem; em branco os que nao pertencem ao modo.
-  var todos = CAMPOS_CRESCIMENTO.concat(CAMPOS_DESCRITORES);
-  for (var i = 0; i < todos.length; i++) {
-    var c = todos[i];
+  for (var i = 0; i < TODOS_CAMPOS.length; i++) {
+    var c = TODOS_CAMPOS[i];
     var bruto = v[c.chave];
     var saida = '';
     if (bruto !== null && bruto !== undefined && String(bruto).trim() !== '') {
-      try {
-        saida = normalizar_(c, bruto);
-      } catch (err) {
-        saida = String(bruto);
-      }
+      try { saida = normalizar_(c, bruto); } catch (err) { saida = String(bruto); }
     }
     linha.push(saida);
   }
 
-  linha.push(uuid, ent.device || '', estado);
+  linha.push(uuid, ent.substitui || '', ent.device || '', estado);
   return linha;
 }
 
 // ---------------------------------------------------------------- doGet
 
-/** Verificacao de saude / lista de rondas ja existentes na folha Data. */
 function doGet(e) {
   var p = (e && e.parameter) || {};
-  if (p.token !== getToken()) return jsonOut_({ ok: false, erro: 'Nao autorizado.' });
+  if (!getToken() || p.token !== getToken()) return jsonOut_({ ok: false, erro: 'Não autorizado.' });
 
-  var dados = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(FOLHA_DADOS);
+  try {
+    var accao = p.action || 'estado';
+    if (accao === 'admin') {
+      return jsonOut_({ ok: true, admin: String(p.pw || '') === getAdminPassword() });
+    }
+
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var log = garantirLog_(ss);
+
+    if (accao === 'estado') return jsonOut_(estado_(ss, log, p));
+    if (accao === 'historico') return jsonOut_(historico_(log, p));
+    if (accao === 'registo') return jsonOut_(registo_(log, p));
+    return jsonOut_({ ok: false, erro: 'Acção desconhecida: ' + accao });
+  } catch (err) {
+    return jsonOut_({ ok: false, erro: String(err && err.message || err) });
+  }
+}
+
+/** Progresso: que plantas ja estao feitas e por quem. */
+function estado_(ss, log, p) {
+  var modo = p.mode === 'crescimento' ? 'crescimento' : 'descritores';
+  var ronda = String(p.ronda || '').trim();
+  var idx = lerIndice_(log);
+
+  var feitas = [];
+  for (var k in idx.porChave) {
+    var r = idx.porChave[k];
+    if (r.modo !== modo) continue;
+    if (modo === 'crescimento' && r.ronda !== ronda) continue;
+    var m = /-(\d{3})$/.exec(r.pid);
+    if (m) feitas.push([parseInt(m[1], 10), r.recorder]);
+  }
+  feitas.sort(function (a, b) { return a[0] - b[0]; });
+
+  var dados = ss.getSheetByName(FOLHA_DADOS);
   var linha1 = dados.getRange(1, 1, 1, dados.getLastColumn()).getValues()[0];
   var rondas = [];
-  for (var i = 5; i < linha1.length; i++) {          // a partir da coluna F
+  for (var i = 5; i < linha1.length; i++) {
     var s = String(linha1[i]).trim();
-    if (s) rondas.push({ rotulo: s, col: letraColuna_(i + 1) });
+    if (s) rondas.push(s);
   }
-  return jsonOut_({
-    ok: true,
-    hora: Utilities.formatDate(new Date(), 'Africa/Maputo', 'yyyy-MM-dd HH:mm:ss'),
-    rondas: rondas
+
+  return { ok: true, hora: agora_(), mode: modo, ronda: ronda, feitas: feitas, rondas: rondas };
+}
+
+/** Lista compacta dos registos (o mais recente de cada planta), sem os valores. */
+function historico_(log, p) {
+  var limite = Math.min(parseInt(p.limite, 10) || 200, 400);
+  var idx = lerIndice_(log);
+  var n = log.getLastRow();
+  if (n < 2) return { ok: true, hora: agora_(), registos: [] };
+
+  var linhasQuero = [];
+  for (var k in idx.porChave) linhasQuero.push(idx.porChave[k].linha);
+  linhasQuero.sort(function (a, b) { return b - a; });
+  linhasQuero = linhasQuero.slice(0, limite);
+
+  var registos = linhasQuero.map(function (l) {
+    var meta = log.getRange(l, 1, 1, COL_PID).getValues()[0];
+    var uuid = String(log.getRange(l, COL_UUID).getValue()).trim();
+    var levant = String(meta[COL_LEVANTAMENTO - 1]).trim();
+    return {
+      uuid: uuid,
+      ts: String(meta[0]),
+      recorder: String(meta[COL_RECORDER - 1]),
+      accao: String(meta[COL_ACCAO - 1]),
+      mode: levant === ROTULO_MODO.crescimento ? 'crescimento' : 'descritores',
+      ronda: String(meta[COL_RONDA - 1]),
+      pid: String(meta[COL_PID - 1])
+    };
   });
+
+  return { ok: true, hora: agora_(), registos: registos };
+}
+
+/** Valores completos de um registo, para poder abrir o formulario ja preenchido. */
+function registo_(log, p) {
+  var uuid = String(p.uuid || '').trim();
+  if (!uuid) return { ok: false, erro: 'Falta o ID do envio.' };
+
+  var n = log.getLastRow();
+  if (n < 2) return { ok: false, erro: 'Registo não encontrado.' };
+
+  var ids = log.getRange(2, COL_UUID, n - 1, 1).getValues();
+  for (var i = ids.length - 1; i >= 0; i--) {
+    if (String(ids[i][0]).trim() !== uuid) continue;
+
+    var l = i + 2;
+    var meta = log.getRange(l, 1, 1, COL_PID).getValues()[0];
+    var brutos = log.getRange(l, COL_PRIMEIRO_CAMPO, 1, TODOS_CAMPOS.length).getValues()[0];
+    var levant = String(meta[COL_LEVANTAMENTO - 1]).trim();
+    var modo = levant === ROTULO_MODO.crescimento ? 'crescimento' : 'descritores';
+
+    var values = {};
+    for (var j = 0; j < TODOS_CAMPOS.length; j++) {
+      var v = desnormalizar_(TODOS_CAMPOS[j], brutos[j]);
+      if (v !== undefined) values[TODOS_CAMPOS[j].chave] = v;
+    }
+
+    return {
+      ok: true,
+      registo: {
+        uuid: uuid,
+        ts: String(meta[0]),
+        recorder: String(meta[COL_RECORDER - 1]),
+        mode: modo,
+        ronda: String(meta[COL_RONDA - 1]),
+        pid: String(meta[COL_PID - 1]),
+        values: values
+      }
+    };
+  }
+  return { ok: false, erro: 'Registo não encontrado.' };
 }
 
 // ------------------------------------------------- utilitario manual (uma vez)
 
 /**
  * Executar UMA VEZ a partir do editor para reconstruir o cabecalho da folha Log.
- * Guarda primeiro o cabecalho antigo numa folha nova, sem apagar nada.
+ * Guarda primeiro o cabecalho antigo numa folha nova, sem apagar dados.
  */
 function reconstruirCabecalhoLog() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var log = ss.getSheetByName(FOLHA_LOG);
 
   if (log && log.getLastRow() >= 1) {
-    var nome = 'Log_backup_' + Utilities.formatDate(new Date(), 'Africa/Maputo', 'yyyyMMdd_HHmmss');
+    var nome = 'Log_backup_' + Utilities.formatDate(new Date(), FUSO, 'yyyyMMdd_HHmmss');
     var copia = ss.insertSheet(nome);
     var largura = Math.max(log.getLastColumn(), 1);
     var altura = Math.max(log.getLastRow(), 1);
     copia.getRange(1, 1, altura, largura)
          .setValues(log.getRange(1, 1, altura, largura).getValues());
-    Logger.log('Copia de seguranca criada: ' + nome);
+    Logger.log('Cópia de segurança criada: ' + nome);
   }
 
-  // Limpa so a linha de cabecalho antiga (a folha Log nao tem dados).
   if (log) log.getRange(1, 1, 1, log.getMaxColumns()).clearContent();
   garantirLog_(ss);
-  Logger.log('Cabecalho da folha Log reconstruido (' + CABECALHO_LOG.length + ' colunas).');
+  Logger.log('Cabeçalho da folha Log reconstruído (' + CABECALHO_LOG.length + ' colunas).');
 }

@@ -43,10 +43,11 @@ Google Apps Script(ウェブアプリ)
 
 1. スプレッドシートを開き **拡張機能 → Apps Script**
 2. 既定の `Code.gs` の中身を全部消し、`apps_script/Codigo.gs` を貼り付けて保存
-3. 左の歯車 **プロジェクトの設定 → スクリプト プロパティ → プロパティを追加**
-   - プロパティ: `TOKEN`
-   - 値: 好きな長い文字列(例 `NBF-Tanheia-2026-xxxxxxxx`)。これが現場端末に入力する
+3. 左の歯車 **プロジェクトの設定 → スクリプト プロパティ** で2つ追加
+   - `TOKEN` … 好きな長い文字列(例 `NBF-Tanheia-2026-xxxxxxxx`)。これが現場端末に入力する
      「Código de activação」になる。**推測されにくい20文字以上**にすること
+   - `ADMIN_PASSWORD` … 管理者モードのパスワード。**未設定だと既定値 `IndiaRec2026` になる**ので、
+     必ず設定すること
 4. 右上 **デプロイ → 新しいデプロイ → 種類:ウェブアプリ**
    - 説明: `India Rec v1`
    - **次のユーザーとして実行: 自分**
@@ -97,6 +98,36 @@ Google Apps Script(ウェブアプリ)
 - 緑 `Ligado — tudo enviado` … 全部送信済み
 - 黄 `Por enviar` + 件数 … 送信待ちあり
 - 赤 `Sem rede — guardado no telemóvel` … 圏外(入力は続けられる)
+- `ADMIN` バッジ … 管理者モード中
+
+## 進捗の見方
+
+- **調査選択画面の各カード**に「19 de 398 plantas (5%)」とバーが出る
+- **Ver progresso por fileira** で r01〜r15 ごとの棒グラフ。終わった列には ✓
+- **株選択画面の列ボタン**にも `19/35` と出るので、どの列が残っているか一目で分かる
+- **Saltar para a próxima por fazer** … 現在地の次の未登録株へジャンプ(端まで行くと先頭へ回る)
+- 圏外のときは最後に取得した進捗をそのまま表示し、「actualizado …」に取得時刻が出る。
+  この端末で入力してまだ送っていない分も進捗に加算される
+
+## 権限と修正
+
+JatLog と同じ考え方。
+
+- **自分が登録した株**は上書き修正できる。株を選ぶと「✓ já registada por si — pode corrigir」と出て、
+  フォームが**前回の値で埋まった状態**で開く。ボタンは `Guardar correcção` に変わる
+- **他人が登録した株**は 🔒 が付き、選んでも先に進めない
+- **管理者**はすべて修正できる。ログイン画面の「Modo administrador」にパスワードを入れる
+  (サーバー側で照合するのでネット接続が必要)。`Trocar de utilizador` しても管理者のままで、
+  抜けるのは「Sair do modo administrador」だけ。**12時間で自動的に切れる**
+- 権限の判定は**サーバー側でも行う**ので、画面をいじっても他人の記録は書き換えられない
+- `Log` シートには毎回1行増え、`Ação` 列に `Registo` / `Correcção`、
+  `Substitui o envio` 列に修正元の送信IDが入る
+
+## 登録の一覧(Registos)
+
+- **Neste aparelho** … この端末で入力した分。**圏外でも見られる**。⏳送信待ち / ✅送信済み / ⚠️エラー
+- **Todos** … シートにある全登録。自分のものは ✏️、他人のものは 🔒。
+  タップすると修正フォームが開く(🔒 は開かない)
 
 ---
 
@@ -140,8 +171,16 @@ F〜K の既存ブロック(`5 month after planting (20260511)`)は上書きし�
 ### 5. Log シート
 
 2026-08-08 に、旧44列ヘッダー(`Branch`, `Sepal Shape`, `Endocarp Rugosity` 等)を
-**`Log_backup_20260808` タブに退避**したうえで、Data の F〜X に合わせた33列に置き換えた。
+**`Log_backup_20260808` タブに退避**したうえで、Data の F〜X に合わせた**35列**に置き換えた。
 旧ヘッダーは行1のみでデータ行は無かったため、失われたデータは無い。
+
+構成: `Data/hora (aparelho)` / `Data/hora (servidor)` / `Registado por` / `Ação` /
+`Levantamento` / `Ronda` / `Plant ID` / `Fileira` / `N.º na fileira` / `N.º na folha` /
+`Lote` / `Linha em Data` + F〜X の19項目 + `ID do envio` / `Substitui o envio` /
+`Aparelho` / `Estado`。
+
+`Ação` が `Correcção` の行は修正で、`Substitui o envio` に修正元の送信IDが入る。
+`Estado` が `ERRO: …` の行は書き込みが拒否された記録(権限違反など)。
 
 ---
 
