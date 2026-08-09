@@ -7,6 +7,7 @@
  *
  * Propriedades do script (Definicoes do projeto > Propriedades do script):
  *   TOKEN           — codigo de activacao que cada telemovel escreve uma vez
+ *                     (sem esta propriedade vale 'jatropha')
  *   ADMIN_PASSWORD  — palavra-passe do modo administrador
  *
  * O cliente envia POST com Content-Type: text/plain para evitar o preflight CORS
@@ -27,7 +28,7 @@ function prop_(nome, porOmissao) {
   var v = PropertiesService.getScriptProperties().getProperty(nome);
   return (v === null || v === '') ? porOmissao : v;
 }
-function getToken() { return prop_('TOKEN', ''); }
+function getToken() { return prop_('TOKEN', 'jatropha'); }
 function getAdminPassword() { return prop_('ADMIN_PASSWORD', 'IndiaRec2026'); }
 
 /**

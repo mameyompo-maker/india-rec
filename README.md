@@ -44,8 +44,8 @@ Google Apps Script(ウェブアプリ)
 1. スプレッドシートを開き **拡張機能 → Apps Script**
 2. 既定の `Code.gs` の中身を全部消し、`apps_script/Codigo.gs` を貼り付けて保存
 3. 左の歯車 **プロジェクトの設定 → スクリプト プロパティ** で2つ追加
-   - `TOKEN` … 好きな長い文字列(例 `NBF-Tanheia-2026-xxxxxxxx`)。これが現場端末に入力する
-     「Código de activação」になる。**推測されにくい20文字以上**にすること
+   - `TOKEN` … 現場端末に入力する「Código de activação」。**未設定だと既定値 `jatropha`**
+     (JatLog と共通、Kaz さん指定)。長い文字列に変えたい場合はここで上書きする
    - `ADMIN_PASSWORD` … 管理者モードのパスワード。**未設定だと既定値 `IndiaRec2026` になる**ので、
      必ず設定すること
 4. 右上 **デプロイ → 新しいデプロイ → 種類:ウェブアプリ**
