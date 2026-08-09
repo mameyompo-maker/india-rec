@@ -101,15 +101,15 @@ def main():
            "contador da fileira r02 mostra 1/35")
         voltar(pag)
         pag.wait_for_timeout(300)
-        ok("1 de 398" in pag.inner_text('[data-texto="descritores"]'),
-           f"cartao mostra 1 de 398 (obtido: {pag.inner_text('[data-texto=descritores]')})")
+        ok("1 de 415" in pag.inner_text('[data-texto="descritores"]'),
+           f"cartao mostra 1 de 415 (obtido: {pag.inner_text('[data-texto=descritores]')})")
 
         pag.click("#ligProgresso")
         pag.wait_for_selector("#ecraProgresso:not([hidden])")
         pag.wait_for_timeout(800)
-        ok("1 / 398" in pag.inner_text("#totalProgresso"), "resumo total 1 / 398")
-        ok("397 plantas por registar" in pag.inner_text("#totalProgresso"), "conta as que faltam")
-        ok(pag.locator("#listaFileiras .linhaFileira").count() == 15, "15 barras de fileira")
+        ok("1 / 415" in pag.inner_text("#totalProgresso"), "resumo total 1 / 415")
+        ok("414 plantas por registar" in pag.inner_text("#totalProgresso"), "conta as que faltam")
+        ok(pag.locator("#listaFileiras .linhaFileira").count() == 16, "16 barras de fileira")
 
         print("\n[4] correccao do proprio registo")
         voltar(pag)
@@ -257,7 +257,65 @@ def main():
         pag.wait_for_selector("#listaHistorico li", timeout=5000)
         ok(pag.locator("#listaHistorico li").count() >= 5, "historico local sobreviveu ao recarregar")
 
-        print("\n[13] service worker e erros de JS")
+        print("\n[13] formulario em coluna unica e avanco campo a campo")
+        voltar(pag)
+        pag.click('.cartao[data-modo="descritores"]')
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
+        escolher_planta(pag, "r03", 5)
+        pag.click("#btnPlanta")
+        pag.wait_for_selector("#ecraFormulario:not([hidden])")
+
+        ok(pag.locator("#camposForm .par").count() == 0, "nao ha campos lado a lado")
+        largos = pag.evaluate(
+            "() => { const c = document.querySelectorAll('#camposForm .linhaCampo');"
+            " const t = new Set(); c.forEach(e => t.add(Math.round(e.getBoundingClientRect().left)));"
+            " return t.size; }")
+        ok(largos == 1, f"todos os campos comecam na mesma coluna ({largos} posicoes)")
+
+        # Enter salta para o campo seguinte
+        pag.focus("#campo_limboFoliar")
+        pag.fill("#campo_limboFoliar", "11")
+        pag.press("#campo_limboFoliar", "Enter")
+        pag.wait_for_timeout(200)
+        foco = pag.evaluate("() => document.activeElement && document.activeElement.id")
+        ok(foco == "campo_peciolo", f"Enter passa ao campo seguinte ({foco})")
+
+        # o botao ao lado faz o mesmo (o teclado numerico do telemovel nao tem Enter)
+        pag.locator("#campo_peciolo ~ .seguinte, #campo_peciolo + .seguinte").first.click()
+        pag.wait_for_timeout(200)
+        foco = pag.evaluate("() => document.activeElement && document.activeElement.id")
+        ok(foco == "campo_folhaComprimento", f"botao seguinte avanca ({foco})")
+
+        # escolher uma cor tambem avanca
+        pag.locator('#camposForm .escolhas.cores').first.locator('.escolha').first.click()
+        pag.wait_for_timeout(200)
+        foco = pag.evaluate("() => document.activeElement && document.activeElement.className")
+        ok("escolha" in (foco or ""), f"escolher cor avanca para a cor seguinte ({foco})")
+
+        # Enter no ultimo campo grava e envia
+        antes = len(log_servidor())
+        pag.fill("#campo_sementeLargura", "0,9")
+        pag.press("#campo_sementeLargura", "Enter")
+        pag.wait_for_selector("#dlgIncompleto[open]", timeout=4000)
+        pag.click("#btnEnviarAssim")
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
+        pag.wait_for_timeout(900)
+        ok(len(log_servidor()) == antes + 1, "Enter no ultimo campo grava e envia")
+
+        print("\n[14] serpentina e textos em portugues")
+        ok("→" in pag.inner_text('#grelhaFileiras button:has-text("r03")'),
+           "fileira impar indica que o n.o 1 esta a esquerda")
+        ok("←" in pag.inner_text('#grelhaFileiras button:has-text("r02")'),
+           "fileira par indica que o n.o 1 esta a direita")
+        ok(pag.locator('#grelhaFileiras button:has-text("r16")').count() == 1,
+           "a fileira r16 existe")
+        escolher_planta(pag, "r02", 10)
+        alvo = pag.inner_text("#resolvidoPlanta")
+        ok("Índia — saco" in alvo, f"nome do lote em portugues ({alvo})")
+        ok("n.º 1 à direita" in alvo, f"indica a ponta por onde comecar ({alvo})")
+        ok("India #bag" not in alvo, "nao sobra ingles no ecra da planta")
+
+        print("\n[15] service worker e erros de JS")
         ok(pag.evaluate("navigator.serviceWorker.controller ? 1 : 0") == 1, "service worker activo")
         reais = [e for e in erros if "favicon" not in e.lower()]
         ok(not reais, f"sem erros de JS ({reais[:3]})")

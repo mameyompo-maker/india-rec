@@ -204,7 +204,7 @@ class H(SimpleHTTPRequestHandler):
             return {"uuid": uuid, "ok": True, "duplicado": True}
 
         seq = ent.get("seq")
-        if not isinstance(seq, int) or not (1 <= seq <= 398):
+        if not isinstance(seq, int) or not (1 <= seq <= 415):
             return {"uuid": uuid, "ok": False, "erro": "seq inválido"}
 
         modo = ent.get("mode")

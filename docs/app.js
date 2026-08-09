@@ -38,8 +38,8 @@ var LEVANTAMENTOS = {
         nome: 'Porte da planta',
         campos: [
           { chave: 'alturaPlanta', rotulo: 'Altura da planta', tipo: 'num', unidade: 'm' },
-          { chave: 'cnp1',         rotulo: 'Cnp-1',            tipo: 'num', unidade: 'm', par: true },
-          { chave: 'cnp2',         rotulo: 'Cnp-2',            tipo: 'num', unidade: 'm', par: true }
+          { chave: 'cnp1',         rotulo: 'Cnp-1',            tipo: 'num', unidade: 'm' },
+          { chave: 'cnp2',         rotulo: 'Cnp-2',            tipo: 'num', unidade: 'm' }
         ]
       },
       {
@@ -67,8 +67,8 @@ var LEVANTAMENTOS = {
         campos: [
           { chave: 'limboFoliar',      rotulo: 'Limbo foliar',     tipo: 'num', unidade: 'cm' },
           { chave: 'peciolo',          rotulo: 'Pecíolo',          tipo: 'num', unidade: 'cm' },
-          { chave: 'folhaComprimento', rotulo: 'Comprimento',      tipo: 'num', unidade: 'cm', par: true },
-          { chave: 'folhaLargura',     rotulo: 'Largura',          tipo: 'num', unidade: 'cm', par: true },
+          { chave: 'folhaComprimento', rotulo: 'Comprimento',      tipo: 'num', unidade: 'cm' },
+          { chave: 'folhaLargura',     rotulo: 'Largura',          tipo: 'num', unidade: 'cm' },
           { chave: 'lobulosFolha',     rotulo: 'Lóbulos da folha', tipo: 'int', unidade: 'n.º' }
         ]
       },
@@ -83,20 +83,56 @@ var LEVANTAMENTOS = {
       {
         nome: 'Fruto',
         campos: [
-          { chave: 'frutoComprimento', rotulo: 'Comprimento', tipo: 'num', unidade: 'cm', par: true },
-          { chave: 'frutoLargura',     rotulo: 'Largura',     tipo: 'num', unidade: 'cm', par: true }
+          { chave: 'frutoComprimento', rotulo: 'Comprimento', tipo: 'num', unidade: 'cm' },
+          { chave: 'frutoLargura',     rotulo: 'Largura',     tipo: 'num', unidade: 'cm' }
         ]
       },
       {
         nome: 'Semente',
         campos: [
-          { chave: 'sementeComprimento', rotulo: 'Comprimento', tipo: 'num', unidade: 'cm', par: true },
-          { chave: 'sementeLargura',     rotulo: 'Largura',     tipo: 'num', unidade: 'cm', par: true }
+          { chave: 'sementeComprimento', rotulo: 'Comprimento', tipo: 'num', unidade: 'cm' },
+          { chave: 'sementeLargura',     rotulo: 'Largura',     tipo: 'num', unidade: 'cm' }
         ]
       }
     ]
   }
 };
+
+/* A folha de cálculo é um conjunto de dados em inglês, mas nada disso pode
+ * aparecer no ecrã de quem está no campo. Estas duas funções são só etiquetas:
+ * o valor cru continua a ser o que viaja para o servidor e para a folha. */
+function nomeLotePt(bruto) {
+  return String(bruto || '')
+    .replace(/^India\s*#\s*bag\s*/i, 'Índia — saco ')
+    .replace(/^India\s*#\s*/i, 'Índia — ');
+}
+
+function nomeRondaPt(bruto) {
+  var s = String(bruto || '').trim();
+  var m = /^(\d+)\s*(month|months|year|years)\s+after\s+planting\s*\((\d{4})(\d{2})(\d{2})\)$/i.exec(s);
+  if (!m) return s;                       // ronda escrita à mão: fica como está
+  var n = parseInt(m[1], 10);
+  var u = /year/i.test(m[2]) ? (n === 1 ? 'ano' : 'anos') : (n === 1 ? 'mês' : 'meses');
+  return n + ' ' + u + ' após a plantação (' + m[5] + '/' + m[4] + '/' + m[3] + ')';
+}
+
+/* A plantação é em serpentina: numa fileira ímpar o n.º 1 está à esquerda do
+ * talhão, numa fileira par está à direita. Sem isto, quem entra na fileira
+ * pela ponta errada começa a contar ao contrário. Verificado contra a aba
+ * 'layout' do ficheiro de campo — ver tools/gen_plants.py. */
+function sentidoDaFileira(row) {
+  for (var i = 0; i < S.fileiras.length; i++) {
+    if (S.fileiras[i].row === row) return S.fileiras[i].sentido;
+  }
+  return null;
+}
+
+function textoSentido(row) {
+  var s = sentidoDaFileira(row);
+  if (s === 'esq') return 'n.º 1 à esquerda →';
+  if (s === 'dir') return '← n.º 1 à direita';
+  return '';
+}
 
 function camposDe(modo) {
   var out = [];
@@ -110,7 +146,9 @@ function camposDe(modo) {
 
 var S = {
   plantas: null,
+  total: 0,            // vem do plants.json; 0 até as plantas carregarem
   fileiras: [],
+  ordemCampos: [],     // controlos do formulário pela ordem em que se preenchem
   porFileira: {},
   porSeq: {},
   fileira: null,
@@ -488,13 +526,13 @@ function pintarCartoes() {
     var g = null;
     try { g = JSON.parse(Def.get(chaveEstado(modo), 'null')); } catch (e) {}
     var n = g && g.feitas ? g.feitas.length : 0;
-    var pc = Math.round(n / 398 * 100);
+    var pc = Math.round(n / S.total * 100);
     var barra = document.querySelector('[data-barra="' + modo + '"] i');
     var texto = document.querySelector('[data-texto="' + modo + '"]');
     if (barra) barra.style.width = pc + '%';
     if (texto) {
       texto.textContent = g
-        ? n + ' de 398 plantas' + (pc >= 1 ? ' (' + pc + '%)' : '')
+        ? n + ' de ' + S.total + ' plantas' + (pc >= 1 ? ' (' + pc + '%)' : '')
         : 'Progresso ainda não carregado';
     }
   });
@@ -503,15 +541,15 @@ function pintarCartoes() {
 function desenharEcraProgresso() {
   var lev = LEVANTAMENTOS[S.modo];
   var n = totalFeitas();
-  var pc = Math.round(n / 398 * 100);
+  var pc = Math.round(n / S.total * 100);
 
   $('subProgresso').textContent = lev.titulo +
-    (S.modo === 'crescimento' ? ' · ' + Def.get('ronda', '') : '') +
+    (S.modo === 'crescimento' ? ' · ' + nomeRondaPt(Def.get('ronda', '')) : '') +
     (S.feitasHora ? ' · actualizado ' + S.feitasHora : ' · sem actualização do servidor');
 
   $('totalProgresso').innerHTML =
-    '<div class="resumo"><div class="grande">' + n + ' / 398</div>' +
-    '<div class="peq">' + (398 - n) + ' plantas por registar</div>' +
+    '<div class="resumo"><div class="grande">' + n + ' / ' + S.total + '</div>' +
+    '<div class="peq">' + (S.total - n) + ' plantas por registar</div>' +
     '<span class="minibarra"><i style="width:' + pc + '%"></i></span></div>';
 
   var alvo = $('listaFileiras');
@@ -530,8 +568,8 @@ function desenharEcraProgresso() {
 
 // ------------------------------------------------------------------ plantas
 
-/* O plants.json só traz os dois blocos (fileiras e lotes); as 398 plantas são
- * expandidas aqui. Poupa ~46 kB de transferência e de espaço no telemóvel. */
+/* O plants.json só traz os dois blocos (fileiras e lotes); as 415 plantas são
+ * expandidas aqui. Poupa ~48 kB de transferência e de espaço no telemóvel. */
 function carregarPlantas() {
   return fetch('plants.json').then(function (r) { return r.json(); }).then(function (j) {
     function expandir(blocos, campo) {
@@ -548,6 +586,7 @@ function carregarPlantas() {
       throw new Error('plants.json inconsistente');
     }
 
+    S.total = j.total;
     S.fileiras = j.fileiras;
     S.porFileira = {};
     S.porSeq = {};
@@ -576,7 +615,7 @@ function desenharFileiras() {
   S.fileiras.forEach(function (f) {
     var c = contarFileira(f.row);
     var b = document.createElement('button');
-    b.innerHTML = f.row + '<small>1–' + f.count + '</small>' +
+    b.innerHTML = f.row + '<small>' + (f.sentido === 'esq' ? '→' : '←') + ' 1–' + f.count + '</small>' +
       '<span class="feito">' + c.feitas + '/' + c.total + '</span>';
     b.className = (S.fileira === f.row ? 'activo' : '') +
       (c.feitas === c.total ? ' completa' : '');
@@ -584,6 +623,8 @@ function desenharFileiras() {
       S.fileira = f.row;
       desenharFileiras();
       resolverPlanta();
+      var dica = $('dicaSentido');
+      if (dica) dica.textContent = f.row + ': ' + textoSentido(f.row);
     };
     g.appendChild(b);
   });
@@ -633,15 +674,16 @@ function resolverPlanta() {
 
   cx.className = '';
   cx.innerHTML = '<b>' + esc(p.pid) + '</b>' + extra + '<br>' +
-    'Fileira ' + p.row + ', n.º ' + p.noFileira + ' &nbsp;·&nbsp; lote ' + esc(p.source) +
-    ' (n.º ' + p.noFolha + ' no lote)';
+    'Fileira ' + p.row + ', n.º ' + p.noFileira + ' &nbsp;·&nbsp; ' + esc(nomeLotePt(p.source)) +
+    ' (n.º ' + p.noFolha + ' no lote)' +
+    '<br><span class="sentido">' + textoSentido(p.row) + '</span>';
   $('btnPlanta').disabled = !!(quem && !podeEditar(quem));
 }
 
 /** Primeira planta ainda sem registo, a partir da posição actual. */
 function proximaPorFazer() {
   var inicio = S.planta ? S.planta.seq + 1 : 1;
-  for (var s = inicio; s <= 398; s++) if (!S.feitas[s]) return S.porSeq[s];
+  for (var s = inicio; s <= S.total; s++) if (!S.feitas[s]) return S.porSeq[s];
   for (var t = 1; t < inicio; t++) if (!S.feitas[t]) return S.porSeq[t];
   return null;
 }
@@ -660,10 +702,12 @@ function desenharFormulario() {
   var lev = LEVANTAMENTOS[S.modo];
   var alvo = $('camposForm');
   alvo.innerHTML = '';
+  S.ordemCampos = [];
 
   $('tituloForm').textContent = S.planta.pid;
   $('subForm').textContent = lev.titulo + ' · fileira ' + S.planta.row +
-    ', n.º ' + S.planta.noFileira + (S.modo === 'crescimento' ? ' · ' + Def.get('ronda', '') : '');
+    ', n.º ' + S.planta.noFileira +
+    (S.modo === 'crescimento' ? ' · ' + nomeRondaPt(Def.get('ronda', '')) : '');
 
   var av = $('avisoEdicao');
   if (S.edicao) {
@@ -681,30 +725,39 @@ function desenharFormulario() {
     box.className = 'grupo';
     box.innerHTML = '<h3>' + g.nome + '</h3>';
 
-    var i = 0;
-    while (i < g.campos.length) {
-      var c = g.campos[i];
-      if (c.par && g.campos[i + 1] && g.campos[i + 1].par) {
-        var d = document.createElement('div');
-        d.className = 'par';
-        d.appendChild(controlo(g.campos[i]));
-        d.appendChild(controlo(g.campos[i + 1]));
-        box.appendChild(d);
-        i += 2;
-      } else {
-        box.appendChild(controlo(c));
-        i += 1;
-      }
-    }
+    /* Um campo por linha. Ter dois lado a lado poupava altura mas obrigava a
+     * acertar em alvos estreitos com o telemóvel na mão e sol em cima. */
+    g.campos.forEach(function (c) { box.appendChild(controlo(c)); });
     alvo.appendChild(box);
   });
 
+  /* No último campo o ▼ passa a ✓: quem chega ao fim da lista já não tem para
+   * onde avançar, e o gesto seguinte é sempre gravar. */
+  var ult = S.ordemCampos[S.ordemCampos.length - 1];
+  if (ult && ult.botao) {
+    ult.botao.textContent = '✓';
+    ult.botao.classList.add('ultimo');
+    ult.botao.setAttribute('aria-label', 'Guardar e enviar');
+    ult.entrada.setAttribute('enterkeyhint', 'send');
+  }
+
   $('btnEnviar').textContent = S.edicao ? 'Guardar correcção' : 'Guardar e enviar';
+}
+
+/**
+ * Passa para o campo seguinte. No último, grava e envia — assim quem está no
+ * campo faz a linha toda sem tirar o polegar do sítio.
+ */
+function avancarPara(i) {
+  var prox = S.ordemCampos[i + 1];
+  if (prox) { prox.focar(); return; }
+  $('btnEnviar').click();
 }
 
 function controlo(c) {
   var env = document.createElement('div');
   var actual = S.valores[c.chave];
+  var idx = S.ordemCampos.length;
 
   if (c.tipo === 'cor' || c.tipo === 'habito') {
     var opcoes = (c.tipo === 'cor') ? CORES : HABITOS;
@@ -724,11 +777,19 @@ function controlo(c) {
         S.valores[c.chave] = jaEstava ? undefined : o.chave;   // tocar outra vez desmarca
         var irmaos = caixa.querySelectorAll('.escolha');
         for (var k = 0; k < irmaos.length; k++) irmaos[k].classList.remove('activo');
-        if (!jaEstava) b.classList.add('activo');
+        if (!jaEstava) { b.classList.add('activo'); avancarPara(idx); }
       };
       caixa.appendChild(b);
     });
     env.appendChild(caixa);
+    S.ordemCampos.push({
+      chave: c.chave,
+      focar: function () {
+        env.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        var p = caixa.querySelector('.escolha');
+        if (p) p.focus({ preventScroll: true });
+      }
+    });
     return env;
   }
 
@@ -736,16 +797,37 @@ function controlo(c) {
   env.innerHTML =
     '<label class="campo" for="' + id + '">' + c.rotulo +
     ' <span class="unidade">(' + c.unidade + ')</span></label>' +
+    '<div class="linhaCampo">' +
     '<input type="text" id="' + id + '" inputmode="' +
-    (c.tipo === 'int' ? 'numeric' : 'decimal') + '" autocomplete="off">';
+    (c.tipo === 'int' ? 'numeric' : 'decimal') + '" autocomplete="off" enterkeyhint="next">' +
+    '<button type="button" class="seguinte" aria-label="Campo seguinte">▼</button>' +
+    '</div>';
 
   var inp = env.querySelector('input');
+  var btn = env.querySelector('.seguinte');
   if (actual !== undefined) inp.value = String(actual).replace('.', ',');
   inp.addEventListener('input', function () {
     var n = paraNumero(inp.value);
     var mau = (n !== null) && (isNaN(n) || n < 0 || (c.tipo === 'int' && Math.round(n) !== n));
     inp.classList.toggle('invalido', mau);
     S.valores[c.chave] = (n === null || isNaN(n)) ? undefined : n;
+  });
+  /* O teclado numérico do iOS não tem tecla de confirmação, por isso o botão ▼
+   * ao lado do campo tem de existir — o Enter sozinho não chegava no telemóvel. */
+  inp.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); avancarPara(idx); }
+  });
+  btn.onclick = function () { avancarPara(idx); };
+
+  S.ordemCampos.push({
+    chave: c.chave,
+    entrada: inp,
+    botao: btn,
+    focar: function () {
+      inp.focus({ preventScroll: true });
+      inp.select();
+      env.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
   });
   return env;
 }
@@ -967,8 +1049,13 @@ function desenharRondasConhecidas() {
   lista.forEach(function (r) {
     var b = document.createElement('button');
     b.type = 'button';
-    b.textContent = r;
-    b.onclick = function () { $('inpRonda').value = r; };
+    b.textContent = nomeRondaPt(r);
+    /* O nome da ronda é o cabeçalho da coluna na folha e tem de ir tal e qual.
+     * No ecrã mostra-se a versão portuguesa e guarda-se o original ao lado. */
+    b.onclick = function () {
+      $('inpRonda').value = nomeRondaPt(r);
+      $('inpRonda').dataset.bruto = r;
+    };
     alvo.appendChild(b);
   });
 }
@@ -1084,7 +1171,8 @@ function ligarEventos() {
         S.digitos = '';
         S.edicao = null;
         if (S.modo === 'crescimento') {
-          $('inpRonda').value = Def.get('ronda', '');
+          $('inpRonda').value = nomeRondaPt(Def.get('ronda', ''));
+          $('inpRonda').dataset.bruto = Def.get('ronda', '');
           desenharRondasConhecidas();
           mostrar('ecraRonda');
         } else {
@@ -1095,10 +1183,13 @@ function ligarEventos() {
   }
 
   $('btnRonda').onclick = function () {
-    var v = $('inpRonda').value.trim();
-    if (!v) { $('inpRonda').classList.add('invalido'); return; }
-    $('inpRonda').classList.remove('invalido');
-    Def.set('ronda', v);
+    var campo = $('inpRonda');
+    var v = campo.value.trim();
+    if (!v) { campo.classList.add('invalido'); return; }
+    campo.classList.remove('invalido');
+    // se o texto ainda é a tradução da ronda escolhida, grava-se o nome original
+    var bruto = campo.dataset.bruto || '';
+    Def.set('ronda', (bruto && v === nomeRondaPt(bruto)) ? bruto : v);
     abrirEcraPlanta();
   };
 

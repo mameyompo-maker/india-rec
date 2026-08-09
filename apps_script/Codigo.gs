@@ -22,7 +22,7 @@ var FOLHA_LOG = 'Log';
 var FUSO = 'Africa/Maputo';
 
 var LINHA_PRIMEIRA_PLANTA = 3;   // Data!A3 = NBF(Tanheia)26-001
-var TOTAL_PLANTAS = 398;
+var TOTAL_PLANTAS = 415;
 
 /**
  * Versao deste ficheiro. Vai em TODAS as respostas, inclusive nas de token errado,
@@ -30,7 +30,7 @@ var TOTAL_PLANTAS = 398;
  * nao se distingue "colei mal" de "implantei a versao antiga".
  * Subir sempre que o Codigo.gs for alterado.
  */
-var VERSAO_CODIGO = '2026-08-09c';
+var VERSAO_CODIGO = '2026-08-09d';
 
 function prop_(nome, porOmissao) {
   var v = PropertiesService.getScriptProperties().getProperty(nome);

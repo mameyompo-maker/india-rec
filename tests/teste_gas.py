@@ -27,10 +27,10 @@ def ok(cond, msg, extra=""):
 
 ARRANQUE = """
 (() => {
-  // folha Data: 2 linhas de cabecalho + 398 plantas (linhas 3..400), colunas A..Z
+  // folha Data: 2 linhas de cabecalho + 415 plantas (linhas 3..417), colunas A..Z
   // A..F sao identificacao (D = "No. in row", inserida em 2026-08-09),
   // G..L o 1.o bloco de ronda, M..Y os descritores.
-  LIVRO.folhas['Data'] = criarFolha('Data', 420, 26);
+  LIVRO.folhas['Data'] = criarFolha('Data', 440, 26);
   const d = LIVRO.folhas['Data'];
   d.getRange(1, 1, 1, 6).setValues([['Plant ID','Row','No.','No. in row','Source','1st Flwr']]);
   d.getRange(1, 7).setValue('5 month after planting (20260511)');
@@ -38,7 +38,7 @@ ARRANQUE = """
   d.getRange(2, 7, 1, 6).setValues([sub]);
   d.getRange(1, 13).setValue('Growth habit');
   d.getRange(1, 25).setValue('Seed width (cm)');
-  for (let i = 0; i < 398; i++) {
+  for (let i = 0; i < 415; i++) {
     const seq = String(i + 1).padStart(3, '0');
     d.getRange(3 + i, 1).setValue('NBF(Tanheia)26-' + seq);
     // G..L ja preenchidas, como na folha real
@@ -313,7 +313,7 @@ def main():
         ok("doGet definido     : true" in d, "confirma que o doGet existe", d)
         ok("colunas do Log     : 35" in d, "conta as colunas do Log", d)
         ok("tem a correccao do dono : true" in d, "deteta se a versao e a actual", d)
-        ok("Aba Data           : 400 linhas" in d, "chega a folha Data", d)
+        ok("Aba Data           : 417 linhas" in d, "chega a folha Data", d)
         ok('"ok":true' in d, "o doGet responde de verdade", d)
         print("  --- saida ---")
         for linha in d.split("\n"):

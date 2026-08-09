@@ -296,8 +296,33 @@ input.invalido { border-color: var(--erro); }
   letter-spacing: .5px;
 }
 
-.par { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.par label.campo { margin-top: 12px; }
+/* De que ponta do talhão começa a fileira (plantação em serpentina). */
+.sentido {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--acento);
+}
+
+/* Campo + botão de avanço. O teclado numérico do telemóvel não traz tecla de
+   confirmação, por isso o ▼ é a única forma fiável de saltar para o campo
+   seguinte sem ter de acertar no campo com o dedo. */
+.linhaCampo { display: flex; gap: 10px; align-items: stretch; }
+.linhaCampo input { flex: 1 1 auto; min-width: 0; }
+
+.seguinte {
+  flex: 0 0 auto;
+  width: var(--toque);
+  min-height: var(--toque);
+  font-size: 20px;
+  color: var(--acento);
+  background: var(--painel);
+  border: 2px solid var(--linha);
+  border-radius: var(--r);
+}
+.seguinte:active { background: var(--linha); }
+.seguinte.ultimo { color: #10210a; background: var(--acento); border-color: var(--acento); }
 
 .barraFundo {
   position: fixed;

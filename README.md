@@ -29,7 +29,7 @@ Google Apps Script(ウェブアプリ)
 |---|---|
 | `docs/` | GitHub Pages で配信する PWA 一式 |
 | `docs/config.js` | **Apps Script の URL をここに貼る** |
-| `docs/plants.json` | 398株のマスタ(自動生成物) |
+| `docs/plants.json` | 415株のマスタ(自動生成物。列ごとの蛇行の向きも持つ) |
 | `docs/sw.js` | Service Worker。**変更時は `CACHE` の値を上げる** |
 | `apps_script/Codigo.gs` | スプレッドシート側に貼るコード |
 | `tools/gen_plants.py` | `plants.json` の生成 |
@@ -84,12 +84,16 @@ Google Apps Script(ウェブアプリ)
    - **Crescimento** … 高さ・樹冠・cachos(G〜L列)。半年ごとの定期調査
    - **Descritores morfológicos** … 形態記載(M〜Y列)
 2. Crescimento の場合は **Ronda**(調査回)を入力。端末に記憶されるので毎回は不要
-3. **Fileira**(r01〜r15)を選び、テンキーで **その列の中での番号** を打つ
+3. **Fileira**(r01〜r16)を選び、テンキーで **その列の中での番号** を打つ
    (= シートの **D列「No. in row」**)
    → Plant ID が画面に出るので現物と照合できる
-4. 測定値を入力
+   → **列ボタンと株カードに `→ n.º 1 à esquerda` / `← n.º 1 à direita` が出る。**
+     蛇行植栽なので、奇数列は左端から、偶数列は右端から1番が始まる
+4. 測定値を入力(**1項目1行、上から順に**)
    - 数値は小数点にカンマ `12,5` でもピリオド `12.5` でも可
-   - 色は4色のタイルをタップ(もう一度タップで解除)
+   - **入力欄の右の `▼` か Enter で次の項目へ進む。** 最後の項目で押すとそのまま保存・送信
+     (スマホの数字キーボードには Enter が無いので `▼` が本命)
+   - 色は4色のタイルをタップ(もう一度タップで解除)。選ぶと自動で次へ進む
    - Hábito は Horizontal / Vertical の2択
 5. **Guardar e enviar**
    - 空欄があれば「Faltam valores」と一覧を出して確認を求める(そのまま送信可)
@@ -103,8 +107,8 @@ Google Apps Script(ウェブアプリ)
 
 ## 進捗の見方
 
-- **調査選択画面の各カード**に「19 de 398 plantas (5%)」とバーが出る
-- **Ver progresso por fileira** で r01〜r15 ごとの棒グラフ。終わった列には ✓
+- **調査選択画面の各カード**に「19 de 415 plantas (5%)」とバーが出る
+- **Ver progresso por fileira** で r01〜r16 ごとの棒グラフ。終わった列には ✓
 - **株選択画面の列ボタン**にも `19/35` と出るので、どの列が残っているか一目で分かる
 - **Saltar para a próxima por fazer** … 現在地の次の未登録株へジャンプ(端まで行くと先頭へ回る)
 - 圏外のときは最後に取得した進捗をそのまま表示し、「actualizado …」に取得時刻が出る。
@@ -142,11 +146,11 @@ JatLog と同じ考え方。
 `Data` シートの **C列「No.」は種子ロット(Source)ごとにリセットされる**。
 つまり列(Row)ごとの通し番号ではない。実際、r01 は 001〜035 の35株だが、
 C列の No. は bag01 の 1〜30 と bag02 の 1〜5 が混在する。
-**(Row, No.) の組は398株中323通りしか無く、75株が重複する。**
+**(Row, No.) の組は一意ではなく、多数の株で重複する。**
 
 アプリは最初から「**その列の中での位置(1〜35)**」を番号として使っていた。
 2026-08-09、Kaz さんの指示でこれを**シート側にも実体化**し、
-**D列「No. in row」** を新設して398株分の値を入れた(A〜C の右)。
+**D列「No. in row」** を新設して415株分の値を入れた(A〜C の右)。
 
 この挿入により、それまで **F〜X にあった測定列は G〜Y へ1つずつ右にずれた**。
 
@@ -162,6 +166,34 @@ C列の No. は bag01 の 1〜30 と bag02 の 1〜5 が混在する。
 
 なお C列の No. と Source は、現物と照合できるようアプリの画面にも出している
 (「n.º 6 no lote」の表示がそれ)。
+
+### 1b. 株数は415、列は r01〜r16(2026-08-09 修正)
+
+初回解析で `Data` を400行目までしか見ておらず、**398株・r15までと誤認していた**。
+実際は **3〜417行目 = 415株、r16 まである**。アプリは415株に対応済み。
+
+### 1c. 蛇行植栽(serpentina)
+
+圃場は蛇行して植えられている。**奇数列は左端から、偶数列は右端から**1番が始まる。
+`Data` の株番号は既に歩く順路どおりに振られているので、Plant ID の昇順に進めば
+そのまま圃場を蛇行して歩ける。
+
+アプリは `plants.json` の各列に `sentido`(`esq` / `dir`)を持ち、列ボタンと株カードに
+矢印で表示する。この向きは元データの `layout` タブと `Data` のロット並びを突き合わせて
+検証した(`tools/gen_plants.py` のコメント参照)。
+
+### 1d. 入力は1項目1行 + 上から順送り
+
+Kaz さんの指示(2026-08-09)で、横に2つ並べていた項目(Cnp-1/Cnp-2 など)を全部縦1列にした。
+`▼` ボタンまたは Enter で次の項目へ進み、最後の項目で押すと保存・送信まで走る。
+**スマホの数字キーボードには Enter キーが無い**ので、`▼` ボタンが本命の導線。
+
+### 1e. 画面に英語を出さない
+
+シートの値(ロット名 `India #bag01`、調査回 `5 month after planting (20260511)`)は
+英語のまま保存するが、画面には `Índia — saco 01` / `5 meses após a plantação (11/05/2026)`
+と表示する。`app.js` の `nomeLotePt()` / `nomeRondaPt()` が担当。
+**変換は表示だけで、サーバーに送る値は元のまま。**
 
 ### 2. シートに書き込む値は英語
 
@@ -196,7 +228,7 @@ G〜L の既存ブロック(`5 month after planting (20260511)`)は上書きし�
 
 構成: `Data/hora (aparelho)` / `Data/hora (servidor)` / `Registado por` / `Ação` /
 `Levantamento` / `Ronda` / `Plant ID` / `Fileira` / `N.º na fileira` / `N.º na folha` /
-`Lote` / `Linha em Data` + F〜X の19項目 + `ID do envio` / `Substitui o envio` /
+`Lote` / `Linha em Data` + 測定19項目 + `ID do envio` / `Substitui o envio` /
 `Aparelho` / `Estado`。
 
 `Ação` が `Correcção` の行は修正で、`Substitui o envio` に修正元の送信IDが入る。
