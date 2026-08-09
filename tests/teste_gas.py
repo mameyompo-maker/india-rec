@@ -308,7 +308,51 @@ def main():
         ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 302, 13, 25)")[1] == 5, "primeiro do lote")
         ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 311, 13, 25)")[1] == 14, "ultimo do lote")
 
-        print("\n[18] funcao diagnostico()")
+        print("\n[18] eliminar um registo")
+        # regista a planta 320 e confirma que ficou escrita
+        post(pag, [envio(uuid="e0", seq=320, pid="NBF(Tanheia)26-320", recorder="Cheia",
+                         values={"limboFoliar": 7.5, "corFruto": "vermelho"})])
+        antes = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 13, 25)")
+        ok(antes[1] == 7.5 and antes[8] == "Red", f"escrita antes de eliminar ({antes[1]}, {antes[8]})")
+
+        # quem nao e o dono nao pode eliminar
+        r = post(pag, [envio(uuid="e1", seq=320, pid="NBF(Tanheia)26-320",
+                             recorder="Joana", accao="eliminar", values={})])
+        ok(r["resultados"][0]["ok"] is False, "outra pessoa nao pode eliminar")
+        depois = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 13, 25)")
+        ok(depois[1] == 7.5, "a recusa nao apagou nada")
+
+        # o dono elimina
+        r = post(pag, [envio(uuid="e2", seq=320, pid="NBF(Tanheia)26-320",
+                             recorder="Cheia", accao="eliminar", values={})])
+        res = r["resultados"][0]
+        ok(res["ok"] and res["accao"] == "Eliminação", f"eliminado ({res.get('accao')})")
+        vazio = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 13, 25)")
+        ok(all(v == "" for v in vazio), f"as celulas do levantamento ficaram vazias ({vazio})")
+
+        # o Log guarda o que la estava
+        n = pag.evaluate("LIVRO.folhas['Log'].getLastRow()")
+        ult = pag.evaluate("colunas(LIVRO.folhas['Log'], %d, 1, 35)" % n)
+        ok(ult[3] == "Eliminação", f"Acção = Eliminação ({ult[3]})")
+        ok(ult[19] == 7.5, f"o Log guardou o valor apagado ({ult[19]})")
+        ok(ult[34] == "OK", f"Estado OK ({ult[34]})")
+
+        # deixa de contar como feita e volta a poder ser registada por outra pessoa
+        j = get(pag, {"action": "estado", "mode": "descritores"})
+        ok(320 not in [f[0] for f in j["feitas"]], "deixa de contar como feita")
+        r = post(pag, [envio(uuid="e3", seq=320, pid="NBF(Tanheia)26-320",
+                             recorder="Joana", values={"limboFoliar": 3})])
+        res = r["resultados"][0]
+        ok(res["ok"] and res["accao"] == "Registo",
+           f"depois de eliminado volta a ser um Registo novo ({res.get('accao')})")
+
+        # eliminar o que nao existe da erro limpo
+        r = post(pag, [envio(uuid="e4", seq=321, pid="NBF(Tanheia)26-321",
+                             recorder="Cheia", accao="eliminar", values={})])
+        ok(r["resultados"][0]["ok"] is False and "eliminar" in r["resultados"][0]["erro"],
+           f"eliminar sem registo da erro ({r['resultados'][0].get('erro')})")
+
+        print("\n[19] funcao diagnostico()")
         d = pag.evaluate("diagnostico()")
         ok("doGet definido     : true" in d, "confirma que o doGet existe", d)
         ok("colunas do Log     : 35" in d, "conta as colunas do Log", d)
@@ -319,7 +363,7 @@ def main():
         for linha in d.split("\n"):
             print("    " + linha[:150])
 
-        print("\n[19] erros de JS durante os testes")
+        print("\n[20] erros de JS durante os testes")
         ok(not erros, f"nenhum ({erros[:2]})")
 
         nav.close()

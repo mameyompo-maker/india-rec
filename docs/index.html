@@ -133,6 +133,7 @@
   <div id="camposForm"></div>
 
   <button class="ligacao" id="ligTrocarPlanta">Trocar de planta</button>
+  <button class="btn perigo" id="btnEliminar" hidden>Eliminar este registo</button>
 
   <div class="barraFundo">
     <button class="btn" id="btnEnviar">Guardar e enviar</button>
@@ -178,6 +179,19 @@
   <div class="dialogoBotoes">
     <button class="btn secundario" id="btnVoltarPreencher">Voltar</button>
     <button class="btn" id="btnEnviarAssim">Enviar assim</button>
+  </div>
+</dialog>
+
+<!-- ------------------------------------------- diálogo: eliminar registo -- -->
+<dialog id="dlgEliminar">
+  <h3>Eliminar este registo?</h3>
+  <p id="textoEliminar"></p>
+  <ul id="listaEliminar"></ul>
+  <p>Os valores são apagados da folha de cálculo e a planta volta a contar como
+  por registar. Fica sempre o rasto na folha <b>Log</b>.</p>
+  <div class="dialogoBotoes">
+    <button class="btn secundario" id="btnNaoEliminar">Voltar</button>
+    <button class="btn perigo" id="btnConfirmarEliminar">Eliminar</button>
   </div>
 </dialog>
 

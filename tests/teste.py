@@ -315,7 +315,41 @@ def main():
         ok("n.º 1 à direita" in alvo, f"indica a ponta por onde comecar ({alvo})")
         ok("India #bag" not in alvo, "nao sobra ingles no ecra da planta")
 
-        print("\n[15] service worker e erros de JS")
+        print("\n[15] eliminar um registo, com confirmacao pelo meio")
+        # a r03/5 foi registada no bloco [13]; abre-a outra vez para a eliminar
+        escolher_planta(pag, "r03", 5)
+        pag.click("#btnPlanta")
+        pag.wait_for_selector("#ecraFormulario:not([hidden])")
+        pag.wait_for_timeout(400)
+        ok(pag.locator("#btnEliminar").is_visible(), "o botao de eliminar aparece num registo existente")
+
+        pag.click("#btnEliminar")
+        pag.wait_for_selector("#dlgEliminar[open]", timeout=4000)
+        ok("NBF(Tanheia)26" in pag.inner_text("#textoEliminar"), "a confirmacao diz qual e a planta")
+        ok(pag.locator("#listaEliminar li").count() >= 1, "a confirmacao lista o que vai desaparecer")
+
+        # "Voltar" nao apaga nada
+        antes = len(log_servidor())
+        pag.click("#btnNaoEliminar")
+        pag.wait_for_timeout(400)
+        ok(len(log_servidor()) == antes, "carregar em Voltar nao envia nada")
+
+        pag.click("#btnEliminar")
+        pag.wait_for_selector("#dlgEliminar[open]")
+        pag.click("#btnConfirmarEliminar")
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
+        pag.wait_for_timeout(1000)
+
+        reg = log_servidor()
+        ok(len(reg) == antes + 1, f"a eliminacao chegou ao servidor ({len(reg)})")
+        ok(reg[-1]["accao"] == "Eliminação", f"gravada como Eliminação ({reg[-1]['accao']})")
+
+        escolher_planta(pag, "r03", 5)
+        alvo = pag.inner_text("#resolvidoPlanta")
+        ok("já registada" not in alvo, f"a planta volta a contar como por registar ({alvo})")
+        ok(pag.locator("#btnPlanta").is_enabled(), "e pode ser registada de novo")
+
+        print("\n[16] service worker e erros de JS")
         ok(pag.evaluate("navigator.serviceWorker.controller ? 1 : 0") == 1, "service worker activo")
         reais = [e for e in erros if "favicon" not in e.lower()]
         ok(not reais, f"sem erros de JS ({reais[:3]})")

@@ -55,6 +55,9 @@ def por_chave():
         if not r["estado"].startswith("OK"):
             continue
         k = chave(r["mode"], r.get("ronda", ""), r["pid"])
+        if r["accao"] == "Eliminação":
+            out.pop(k, None)          # anulado: volta a contar como por fazer
+            continue
         ja = out.get(k)
         out[k] = {**r, "dono": ja["dono"] if ja else r["recorder"]}
     return out
@@ -211,15 +214,27 @@ class H(SimpleHTTPRequestHandler):
         ronda = ent.get("ronda", "")
         pid = ent.get("pid", "")
         anterior = por_chave().get(chave(modo, ronda, pid))
-        accao = "Correcção" if anterior else "Registo"
+        eliminar = ent.get("accao") == "eliminar"
+        accao = "Eliminação" if eliminar else ("Correcção" if anterior else "Registo")
+
+        if eliminar and not anterior:
+            erro = "Não há nenhum registo desta planta para eliminar."
+            E["log"].append({**ent, "accao": "Eliminação", "estado": "ERRO: " + erro})
+            return {"uuid": uuid, "ok": False, "erro": erro}
 
         if anterior and not admin:
             dono = anterior["recorder"]
             if dono and dono != ent.get("recorder", ""):
                 erro = (f"Esta planta foi registada por {dono}. "
                         "Só essa pessoa (ou um administrador) a pode corrigir.")
-                E["log"].append({**ent, "accao": "Registo", "estado": "ERRO: " + erro})
+                E["log"].append({**ent, "accao": accao, "estado": "ERRO: " + erro})
                 return {"uuid": uuid, "ok": False, "erro": erro}
+
+        if eliminar:
+            E["uuids"].add(uuid)
+            E["log"].append({**ent, "accao": "Eliminação", "estado": "OK"})
+            return {"uuid": uuid, "ok": True, "linha": 2 + seq,
+                    "accao": "Eliminação", "celulas": []}
 
         chaves = COLS_CRESC if modo == "crescimento" else COLS_DESCR
         vals = ent.get("values", {})
@@ -237,7 +252,20 @@ class H(SimpleHTTPRequestHandler):
         return {"uuid": uuid, "ok": True, "linha": 2 + seq, "accao": accao, "celulas": celulas}
 
 
+class Servidor(ThreadingHTTPServer):
+    """Recusa arrancar se ja houver um servidor na porta.
+
+    No Windows o allow_reuse_address do HTTPServer deixa dois processos ficarem
+    com a mesma porta, e os pedidos vao parar a um deles ao calhas. Em 2026-08-09
+    ficaram cinco copias antigas a correr e os testes passaram a ser respondidos
+    por uma versao velha do codigo — durante um bom bocado pareceu um erro na
+    aplicacao. Mais vale falhar aqui e em alto e bom som.
+    """
+    allow_reuse_address = False
+    daemon_threads = True
+
+
 if __name__ == "__main__":
-    srv = ThreadingHTTPServer(("127.0.0.1", PORTA), H)
+    srv = Servidor(("127.0.0.1", PORTA), H)
     print(f"a servir {DOCS} em http://127.0.0.1:{PORTA}", flush=True)
     srv.serve_forever()

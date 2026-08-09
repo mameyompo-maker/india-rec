@@ -3,7 +3,7 @@
  * IMPORTANTE: subir CACHE sempre que se altera qualquer ficheiro em docs/,
  * caso contrário os telemóveis continuam a usar a versão antiga.
  */
-var CACHE = 'indiarec-v8';
+var CACHE = 'indiarec-v9';
 
 var FICHEIROS = [
   './',

@@ -30,7 +30,7 @@ var TOTAL_PLANTAS = 415;
  * nao se distingue "colei mal" de "implantei a versao antiga".
  * Subir sempre que o Codigo.gs for alterado.
  */
-var VERSAO_CODIGO = '2026-08-09d';
+var VERSAO_CODIGO = '2026-08-09e';
 
 function prop_(nome, porOmissao) {
   var v = PropertiesService.getScriptProperties().getProperty(nome);
@@ -117,6 +117,9 @@ var COL_SUBSTITUI = COL_UUID + 1;                  // AG
 var COL_ESTADO = COL_UUID + 3;                     // AI
 
 var ROTULO_MODO = { crescimento: 'Crescimento (G-L)', descritores: 'Descritores (M-Y)' };
+
+/** Acção gravada no Log quando alguém anula um registo. */
+var ACCAO_ELIMINAR = 'Eliminação';
 
 /**
  * Le o modo a partir do texto gravado na coluna Levantamento do Log.
@@ -263,6 +266,12 @@ function lerIndice_(log) {
 
     var modo = modoDoRotulo_(levant);
     var k = chave_(modo, ronda, pid);
+
+    /* Uma eliminacao apaga o registo do indice: a planta volta a contar como
+     * por fazer e deixa de aparecer no historico. Se depois alguem a registar
+     * outra vez, e essa pessoa que passa a ser dona. */
+    if (String(meta[i][1]).trim() === ACCAO_ELIMINAR) { delete idx.porChave[k]; continue; }
+
     var ja = idx.porChave[k];
 
     /* As linhas vem por ordem, por isso a primeira que aparece e a criacao.
@@ -354,8 +363,12 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
     if (modo === 'crescimento' && !ronda) throw new Error('Falta a ronda do levantamento.');
 
     // quem e o dono do registo actual desta planta?
+    var eliminar = String(ent.accao || '') === 'eliminar';
     var anterior = idx.porChave[chave_(modo, ronda, pidFolha)];
-    var accao = anterior ? 'Correcção' : 'Registo';
+    var accao = eliminar ? ACCAO_ELIMINAR : (anterior ? 'Correcção' : 'Registo');
+    if (eliminar && !anterior) {
+      throw new Error('Não há nenhum registo desta planta para eliminar.');
+    }
     if (anterior && !admin) {
       var meu = String(ent.recorder || '').trim();
       if (anterior.dono && anterior.dono !== meu) {
@@ -371,6 +384,30 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
     var colInicio = (modo === 'crescimento') ? colunaBlocoRonda_(dados, ronda) : campos[0].col;
     var bloco = dados.getRange(linha, colInicio, 1, campos.length);
     var actuais = bloco.getValues()[0];
+
+    if (eliminar) {
+      /* Guarda no Log o que estava la antes de limpar. Sem isto, uma eliminacao
+       * feita por engano nao deixava rasto nenhum do que se perdeu. */
+      var antigos = {};
+      var limpas = [];
+      for (var j = 0; j < campos.length; j++) {
+        var d = desnormalizar_(campos[j], actuais[j]);
+        if (d !== undefined) antigos[campos[j].chave] = d;
+        if (String(actuais[j]).trim() !== '') limpas.push(colInicio + j);
+        actuais[j] = '';
+      }
+      bloco.setValues([actuais]);
+
+      ent.values = antigos;
+      linhasLog.push(montarLinhaLog_(ent, uuid, linha, ACCAO_ELIMINAR, 'OK'));
+      idx.uuids[uuid] = true;
+      delete idx.porChave[chave_(modo, ronda, pidFolha)];
+
+      return {
+        ok: true, uuid: uuid, linha: linha, accao: ACCAO_ELIMINAR,
+        celulas: limpas.map(function (col) { return letraColuna_(col) + linha; })
+      };
+    }
 
     // normaliza tudo antes de escrever, para nao deixar escritas a meio
     var valores = ent.values || {};
@@ -400,7 +437,8 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
     };
   } catch (err) {
     var msg = String(err && err.message || err);
-    linhasLog.push(montarLinhaLog_(ent, uuid, '', 'Registo', 'ERRO: ' + msg));
+    var tentada = (String(ent.accao || '') === 'eliminar') ? ACCAO_ELIMINAR : 'Registo';
+    linhasLog.push(montarLinhaLog_(ent, uuid, '', tentada, 'ERRO: ' + msg));
     return { ok: false, uuid: uuid, erro: msg };
   }
 }

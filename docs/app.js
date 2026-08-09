@@ -408,6 +408,7 @@ function enviarLote(lote, token, adminPw) {
         uuid: e.uuid, tsLocal: e.tsLocal, ts: e.tsIso,
         recorder: e.recorder, device: e.device,
         mode: e.mode, ronda: e.ronda, substitui: e.substitui || '',
+        accao: e.accao || '',
         seq: e.seq, pid: e.pid, row: e.row,
         noFileira: e.noFileira, noFolha: e.noFolha, source: e.source,
         values: e.values
@@ -436,7 +437,11 @@ function enviarLote(lote, token, adminPw) {
         e.estado = 'enviado';
         e.enviadoEm = Date.now();
         e.celulas = r.celulas || [];
-        e.accao = r.accao || '';
+        /* Campo separado de propósito: `accao` é a intenção do aparelho
+         * ('eliminar' ou vazio) e o progresso local depende dela. Escrever
+         * aqui o resultado do servidor apagava essa intenção, e as eliminações
+         * já enviadas voltavam a contar como registos. */
+        e.accaoServidor = r.accao || '';
       } else {
         e.estado = 'erro';
         e.erro = r.erro || 'Erro desconhecido';
@@ -462,9 +467,13 @@ function aplicarFeitas(lista, hora) {
   S.feitasHora = hora || '';
   return DB.todos().then(function (l) {
     var ronda = Def.get('ronda', '');
+    /* Por ordem de criação: se a mesma planta foi registada e depois eliminada,
+     * o que vale é a última coisa que se fez. */
+    l.sort(function (a, b) { return a.criadoEm - b.criadoEm; });
     l.forEach(function (e) {
       if (e.estado === 'erro' || e.mode !== S.modo) return;
       if (S.modo === 'crescimento' && e.ronda !== ronda) return;
+      if (e.accao === 'eliminar') { delete S.feitas[e.seq]; return; }   // desconta, não soma
       if (!S.feitas[e.seq]) S.feitas[e.seq] = e.recorder;
     });
   });
@@ -742,6 +751,82 @@ function desenharFormulario() {
   }
 
   $('btnEnviar').textContent = S.edicao ? 'Guardar correcção' : 'Guardar e enviar';
+
+  /* Só faz sentido eliminar o que já existe na folha, e só quem lá pode mexer. */
+  var quemTem = S.feitas[S.planta.seq];
+  $('btnEliminar').hidden = !(quemTem && podeEditar(quemTem));
+}
+
+/**
+ * Anula um registo: os valores deste levantamento saem da folha e a planta
+ * volta a contar como por fazer. Serve para quando se mediu a planta errada.
+ * Vai pela mesma fila que os registos, por isso também funciona sem rede.
+ */
+function eliminarRegisto() {
+  var t = agoraLocal();
+  var eu = Def.get('nome', '');
+  var dono = S.edicao ? S.edicao.recorder : S.feitas[S.planta.seq];
+
+  var reg = {
+    uuid: uuid(),
+    criadoEm: t.ms,
+    tsLocal: t.texto,
+    tsIso: t.iso,
+    estado: 'pendente',
+    recorder: eu,
+    device: Def.get('aparelho', ''),
+    mode: S.modo,
+    ronda: S.modo === 'crescimento' ? Def.get('ronda', '') : '',
+    substitui: S.edicao ? S.edicao.uuid : '',
+    accao: 'eliminar',
+    precisaAdmin: !!(dono && dono !== eu),
+    seq: S.planta.seq,
+    pid: S.planta.pid,
+    row: S.planta.row,
+    noFileira: S.planta.noFileira,
+    noFolha: S.planta.noFolha,
+    source: S.planta.source,
+    values: {}
+  };
+
+  return DB.guardar(reg).then(function () {
+    brinde('Registo eliminado: ' + reg.pid);
+    delete S.feitas[reg.seq];
+    S.edicao = null;
+    actualizarEstado();
+    enviarFila();
+    S.digitos = '';
+    desenharFileiras();
+    resolverPlanta();
+    mostrar('ecraPlanta');
+  });
+}
+
+/** Mostra o que vai desaparecer antes de perguntar se é mesmo para eliminar. */
+function perguntarEliminar() {
+  $('textoEliminar').textContent =
+    S.planta.pid + ' — ' + LEVANTAMENTOS[S.modo].titulo +
+    (S.modo === 'crescimento' ? ' · ' + nomeRondaPt(Def.get('ronda', '')) : '');
+
+  var ul = $('listaEliminar');
+  ul.innerHTML = '';
+  camposDe(S.modo).forEach(function (c) {
+    var v = S.valores[c.chave];
+    if (v === undefined || v === '') return;
+    var texto = v;
+    if (c.tipo === 'cor') texto = (CORES.filter(function (o) { return o.chave === v; })[0] || {}).rotulo || v;
+    if (c.tipo === 'habito') texto = (HABITOS.filter(function (o) { return o.chave === v; })[0] || {}).rotulo || v;
+    var li = document.createElement('li');
+    li.textContent = c.rotulo + ': ' + texto;
+    ul.appendChild(li);
+  });
+  if (!ul.children.length) {
+    var li0 = document.createElement('li');
+    li0.textContent = '(sem valores carregados neste ecrã)';
+    ul.appendChild(li0);
+  }
+
+  $('dlgEliminar').showModal();
 }
 
 /**
@@ -1268,6 +1353,13 @@ function ligarEventos() {
 
   $('btnVoltarPreencher').onclick = function () { $('dlgIncompleto').close(); };
   $('btnEnviarAssim').onclick = function () { $('dlgIncompleto').close(); gravarRegisto(); };
+
+  $('btnEliminar').onclick = perguntarEliminar;
+  $('btnNaoEliminar').onclick = function () { $('dlgEliminar').close(); };
+  $('btnConfirmarEliminar').onclick = function () {
+    $('dlgEliminar').close();
+    eliminarRegisto();
+  };
 
   var voltares = document.querySelectorAll('[data-voltar]');
   for (var j = 0; j < voltares.length; j++) {

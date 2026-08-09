@@ -490,3 +490,14 @@ details#blocoAdmin[open] { padding-bottom: 16px; }
   cursor: pointer;
 }
 #rondasConhecidas button:active { border-color: var(--acento); color: var(--txt); }
+
+/* Botão destrutivo (a cor está definida com os outros .btn). Fica longe do
+   "Guardar e enviar" e ainda passa por uma confirmação. */
+.btn.perigo:active { filter: brightness(0.85); }
+
+#listaEliminar {
+  margin: 8px 0 12px 18px;
+  font-size: 16px;
+  color: var(--txt);
+}
+#listaEliminar li { margin: 2px 0; }
