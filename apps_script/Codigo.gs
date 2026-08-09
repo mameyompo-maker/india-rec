@@ -521,6 +521,48 @@ function registo_(log, p) {
   return { ok: false, erro: 'Registo não encontrado.' };
 }
 
+// ------------------------------------------------------------- diagnostico
+
+/**
+ * Executar a partir do editor (escolher "diagnostico" e carregar em Executar) e
+ * abrir o registo de execucao. Diz se ESTE projecto e o certo, sem ser preciso
+ * implantar nada — serve para separar "a cola correu mal" de "implantei o
+ * projecto errado".
+ */
+function diagnostico() {
+  var l = [];
+  l.push('doGet definido     : ' + (typeof doGet === 'function'));
+  l.push('doPost definido    : ' + (typeof doPost === 'function'));
+  l.push('colunas do Log     : ' + CABECALHO_LOG.length + ' (tem de ser 35)');
+  l.push('tem a correccao do dono : ' + (String(processarEntrada_).indexOf('anterior.dono') >= 0));
+
+  var props = PropertiesService.getScriptProperties().getProperties();
+  l.push('TOKEN definido     : ' + (props.TOKEN ? 'sim' : 'NAO — fica "' + getToken() + '"'));
+  l.push('ADMIN_PASSWORD     : ' + (props.ADMIN_PASSWORD ? 'sim' : 'NAO — fica o valor por omissao'));
+
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    l.push('Folha de calculo   : ' + ss.getName());
+    var d = ss.getSheetByName(FOLHA_DADOS);
+    l.push('Aba Data           : ' + (d ? d.getLastRow() + ' linhas' : 'NAO ENCONTRADA'));
+    var lg = ss.getSheetByName(FOLHA_LOG);
+    l.push('Aba Log            : ' + (lg ? lg.getLastRow() + ' linhas' : 'NAO ENCONTRADA'));
+  } catch (err) {
+    l.push('ERRO a abrir a folha: ' + (err && err.message));
+  }
+
+  try {
+    var r = doGet({ parameter: { token: getToken(), action: 'estado', mode: 'descritores' } });
+    l.push('doGet responde     : ' + String(r.getContent()).slice(0, 200));
+  } catch (err2) {
+    l.push('ERRO no doGet      : ' + (err2 && err2.message));
+  }
+
+  var texto = l.join('\n');
+  Logger.log(texto);
+  return texto;
+}
+
 // ------------------------------------------------- utilitario manual (uma vez)
 
 /**

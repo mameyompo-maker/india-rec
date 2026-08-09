@@ -298,7 +298,18 @@ def main():
         ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 302, 12, 24)")[1] == 5, "primeiro do lote")
         ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 311, 12, 24)")[1] == 14, "ultimo do lote")
 
-        print("\n[18] erros de JS durante os testes")
+        print("\n[18] funcao diagnostico()")
+        d = pag.evaluate("diagnostico()")
+        ok("doGet definido     : true" in d, "confirma que o doGet existe", d)
+        ok("colunas do Log     : 35" in d, "conta as colunas do Log", d)
+        ok("tem a correccao do dono : true" in d, "deteta se a versao e a actual", d)
+        ok("Aba Data           : 400 linhas" in d, "chega a folha Data", d)
+        ok('"ok":true' in d, "o doGet responde de verdade", d)
+        print("  --- saida ---")
+        for linha in d.split("\n"):
+            print("    " + linha[:150])
+
+        print("\n[19] erros de JS durante os testes")
         ok(not erros, f"nenhum ({erros[:2]})")
 
         nav.close()

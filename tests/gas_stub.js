@@ -94,6 +94,7 @@ var LIVRO = { folhas: {} };
 var SpreadsheetApp = {
   openById: function () {
     return {
+      getName: function () { return 'NBF(Tanheia)26 (falso)'; },
       getSheetByName: function (n) { return LIVRO.folhas[n] || null; },
       insertSheet: function (n) {
         LIVRO.folhas[n] = criarFolha(n, 200, 60);
@@ -107,7 +108,10 @@ var SpreadsheetApp = {
 var PROPS = {};
 var PropertiesService = {
   getScriptProperties: function () {
-    return { getProperty: function (k) { return k in PROPS ? PROPS[k] : null; } };
+    return {
+      getProperty: function (k) { return k in PROPS ? PROPS[k] : null; },
+      getProperties: function () { return JSON.parse(JSON.stringify(PROPS)); }
+    };
   }
 };
 
