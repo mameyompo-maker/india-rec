@@ -9,6 +9,6 @@
  * Cada telemóvel escreve-o uma vez no primeiro arranque e fica guardado no aparelho.
  */
 window.INDIAREC_CONFIG = {
-  ENDPOINT: 'https://script.google.com/macros/s/AKfycbwPZ8bF1-MHgM9l1ikrZ5HgqjrrtbcTNTkaiAgrqN9ZaY0wC_o1obagT8gcI3EufWwg/exec',
-  VERSAO: '1.0.0'
+  ENDPOINT: 'https://script.google.com/macros/s/AKfycbzAgv8FE1KG7KhDfpgHuEZhB7YKiUmFbP-X7z5qHVbJjfeQkU0Yfrm4j5SUikUNrkCK/exec',
+  VERSAO: '1.0.1'
 };
