@@ -30,7 +30,7 @@ var TOTAL_PLANTAS = 415;
  * nao se distingue "colei mal" de "implantei a versao antiga".
  * Subir sempre que o Codigo.gs for alterado.
  */
-var VERSAO_CODIGO = '2026-08-09e';
+var VERSAO_CODIGO = '2026-08-10a';
 
 function prop_(nome, porOmissao) {
   var v = PropertiesService.getScriptProperties().getProperty(nome);
@@ -51,31 +51,35 @@ var VALOR_COR = {
   vermelho: 'Red'
 };
 
-/* Colunas da folha Data. Em 2026-08-09 foi inserida a coluna D ("No. in row"),
- * por isso tudo o que estava em F..X passou a estar em G..Y. */
+/* Colunas da folha Data.
+ *   2026-08-09  entra a coluna D ("No. in row"):  F..X  ->  G..Y
+ *   2026-08-10  entra "Brunch" no bloco da ronda: G..L  ->  G..M  e  M..Y -> N..Z
+ * REVERSAO: se o campo "Brunch" for retirado da folha, apagar a linha de 'ramos',
+ * baixar 1 em cada col abaixo dela, e por ROTULO_MODO de volta a (G-L)/(M-Y). */
 var CAMPOS_CRESCIMENTO = [
   { chave: 'alturaPlanta',  col: 7,  rotulo: 'Altura da planta (m)',            tipo: 'num' },
   { chave: 'cnp1',          col: 8,  rotulo: 'Cnp-1 (m)',                       tipo: 'num' },
   { chave: 'cnp2',          col: 9,  rotulo: 'Cnp-2 (m)',                       tipo: 'num' },
-  { chave: 'cachosFrutos',  col: 10, rotulo: 'Cachos de frutos (n.º)',          tipo: 'int' },
-  { chave: 'cachosFlores',  col: 11, rotulo: 'Cachos de flores (n.º)',          tipo: 'int' },
-  { chave: 'cachosBotoes',  col: 12, rotulo: 'Cachos de botões florais (n.º)',  tipo: 'int' }
+  { chave: 'ramos',         col: 10, rotulo: 'Ramos (n.º)',                     tipo: 'int' },
+  { chave: 'cachosFrutos',  col: 11, rotulo: 'Cachos de frutos (n.º)',          tipo: 'int' },
+  { chave: 'cachosFlores',  col: 12, rotulo: 'Cachos de flores (n.º)',          tipo: 'int' },
+  { chave: 'cachosBotoes',  col: 13, rotulo: 'Cachos de botões florais (n.º)',  tipo: 'int' }
 ];
 
 var CAMPOS_DESCRITORES = [
-  { chave: 'habitoCrescimento',  col: 13, rotulo: 'Hábito de crescimento',              tipo: 'habito' },
-  { chave: 'limboFoliar',        col: 14, rotulo: 'Limbo foliar (cm)',                  tipo: 'num' },
-  { chave: 'peciolo',            col: 15, rotulo: 'Pecíolo (cm)',                       tipo: 'num' },
-  { chave: 'folhaComprimento',   col: 16, rotulo: 'Folha - comprimento (cm)',           tipo: 'num' },
-  { chave: 'folhaLargura',       col: 17, rotulo: 'Folha - largura (cm)',               tipo: 'num' },
-  { chave: 'lobulosFolha',       col: 18, rotulo: 'Lóbulos da folha (n.º)',             tipo: 'int' },
-  { chave: 'corInflorMasc',      col: 19, rotulo: 'Cor da inflorescência - masculina',  tipo: 'cor' },
-  { chave: 'corInflorFem',       col: 20, rotulo: 'Cor da inflorescência - feminina',   tipo: 'cor' },
-  { chave: 'corFruto',           col: 21, rotulo: 'Cor do fruto',                       tipo: 'cor' },
-  { chave: 'frutoComprimento',   col: 22, rotulo: 'Comprimento do fruto (cm)',          tipo: 'num' },
-  { chave: 'frutoLargura',       col: 23, rotulo: 'Largura do fruto (cm)',              tipo: 'num' },
-  { chave: 'sementeComprimento', col: 24, rotulo: 'Comprimento da semente (cm)',        tipo: 'num' },
-  { chave: 'sementeLargura',     col: 25, rotulo: 'Largura da semente (cm)',            tipo: 'num' }
+  { chave: 'habitoCrescimento',  col: 14, rotulo: 'Hábito de crescimento',              tipo: 'habito' },
+  { chave: 'limboFoliar',        col: 15, rotulo: 'Limbo foliar (cm)',                  tipo: 'num' },
+  { chave: 'peciolo',            col: 16, rotulo: 'Pecíolo (cm)',                       tipo: 'num' },
+  { chave: 'folhaComprimento',   col: 17, rotulo: 'Folha - comprimento (cm)',           tipo: 'num' },
+  { chave: 'folhaLargura',       col: 18, rotulo: 'Folha - largura (cm)',               tipo: 'num' },
+  { chave: 'lobulosFolha',       col: 19, rotulo: 'Lóbulos da folha (n.º)',             tipo: 'int' },
+  { chave: 'corInflorMasc',      col: 20, rotulo: 'Cor da inflorescência - masculina',  tipo: 'cor' },
+  { chave: 'corInflorFem',       col: 21, rotulo: 'Cor da inflorescência - feminina',   tipo: 'cor' },
+  { chave: 'corFruto',           col: 22, rotulo: 'Cor do fruto',                       tipo: 'cor' },
+  { chave: 'frutoComprimento',   col: 23, rotulo: 'Comprimento do fruto (cm)',          tipo: 'num' },
+  { chave: 'frutoLargura',       col: 24, rotulo: 'Largura do fruto (cm)',              tipo: 'num' },
+  { chave: 'sementeComprimento', col: 25, rotulo: 'Comprimento da semente (cm)',        tipo: 'num' },
+  { chave: 'sementeLargura',     col: 26, rotulo: 'Largura da semente (cm)',            tipo: 'num' }
 ];
 
 /** Primeira coluna do 1.º bloco de ronda em Data (G). A..F sao identificacao. */
@@ -116,7 +120,7 @@ var COL_UUID = 12 + TODOS_CAMPOS.length + 1;       // AF = 32
 var COL_SUBSTITUI = COL_UUID + 1;                  // AG
 var COL_ESTADO = COL_UUID + 3;                     // AI
 
-var ROTULO_MODO = { crescimento: 'Crescimento (G-L)', descritores: 'Descritores (M-Y)' };
+var ROTULO_MODO = { crescimento: 'Crescimento (G-M)', descritores: 'Descritores (N-Z)' };
 
 /** Acção gravada no Log quando alguém anula um registo. */
 var ACCAO_ELIMINAR = 'Eliminação';
@@ -207,17 +211,20 @@ function colunaBlocoRonda_(folha, ronda) {
     if (String(linha1[i]).trim() !== '' && String(linha1[i]).trim() === ronda) return i + 1;
   }
 
+  // a largura do bloco e o numero de campos — estava fixa em 6 e partiu-se
+  // quando a folha ganhou a coluna "Brunch"
+  var largura = CAMPOS_CRESCIMENTO.length;
   var inicio = ultima + 1;
-  var precisa = inicio + 5;
+  var precisa = inicio + largura - 1;
   if (folha.getMaxColumns() < precisa) {
     folha.insertColumnsAfter(folha.getMaxColumns(), precisa - folha.getMaxColumns());
   }
   folha.getRange(1, inicio).setValue(ronda);
-  folha.getRange(1, inicio, 1, 6).merge();
-  folha.getRange(2, inicio, 1, 6).setValues([
+  folha.getRange(1, inicio, 1, largura).merge();
+  folha.getRange(2, inicio, 1, largura).setValues([
     CAMPOS_CRESCIMENTO.map(function (c) { return c.rotulo; })
   ]);
-  folha.getRange(1, inicio, 2, 6).setFontWeight('bold');
+  folha.getRange(1, inicio, 2, largura).setFontWeight('bold');
   return inicio;
 }
 
@@ -610,7 +617,8 @@ function diagnostico() {
   l.push('versao do Codigo   : ' + VERSAO_CODIGO);
   l.push('doGet definido     : ' + (typeof doGet === 'function'));
   l.push('doPost definido    : ' + (typeof doPost === 'function'));
-  l.push('colunas do Log     : ' + CABECALHO_LOG.length + ' (tem de ser 35)');
+  l.push('colunas do Log     : ' + CABECALHO_LOG.length +
+         ' (12 + ' + TODOS_CAMPOS.length + ' campos + 4)');
   l.push('tem a correccao do dono : ' + (String(processarEntrada_).indexOf('anterior.dono') >= 0));
 
   var props = PropertiesService.getScriptProperties().getProperties();

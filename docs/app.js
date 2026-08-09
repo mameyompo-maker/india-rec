@@ -32,14 +32,15 @@ var HABITOS = [
 var LEVANTAMENTOS = {
   crescimento: {
     titulo: 'Crescimento',
-    colunas: 'G–L',
+    colunas: 'G–M',
     grupos: [
       {
         nome: 'Porte da planta',
         campos: [
           { chave: 'alturaPlanta', rotulo: 'Altura da planta', tipo: 'num', unidade: 'm' },
           { chave: 'cnp1',         rotulo: 'Cnp-1',            tipo: 'num', unidade: 'm' },
-          { chave: 'cnp2',         rotulo: 'Cnp-2',            tipo: 'num', unidade: 'm' }
+          { chave: 'cnp2',         rotulo: 'Cnp-2',            tipo: 'num', unidade: 'm' },
+          { chave: 'ramos',        rotulo: 'Ramos',            tipo: 'int', unidade: 'n.º' }
         ]
       },
       {
@@ -54,7 +55,7 @@ var LEVANTAMENTOS = {
   },
   descritores: {
     titulo: 'Descritores morfológicos',
-    colunas: 'M–Y',
+    colunas: 'N–Z',
     grupos: [
       {
         nome: 'Hábito',

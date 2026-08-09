@@ -21,13 +21,15 @@ PORTA = int(sys.argv[2]) if len(sys.argv) > 2 else 8765
 TOKEN = "TESTE-123456"
 ADMIN_PW = "adm-2026"
 
-COLS_CRESC = ["alturaPlanta", "cnp1", "cnp2", "cachosFrutos", "cachosFlores", "cachosBotoes"]
+COLS_CRESC = ["alturaPlanta", "cnp1", "cnp2", "ramos",
+              "cachosFrutos", "cachosFlores", "cachosBotoes"]
 COLS_DESCR = ["habitoCrescimento", "limboFoliar", "peciolo", "folhaComprimento",
               "folhaLargura", "lobulosFolha", "corInflorMasc", "corInflorFem",
               "corFruto", "frutoComprimento", "frutoLargura", "sementeComprimento",
               "sementeLargura"]
-BASE_DESCR = 12  # coluna L
-ROTULO = {"crescimento": "Crescimento (G-L)", "descritores": "Descritores (M-Y)"}
+BASE_CRESC = 7   # coluna G
+BASE_DESCR = 14  # coluna N
+ROTULO = {"crescimento": "Crescimento (G-M)", "descritores": "Descritores (N-Z)"}
 
 E = {"log": [], "uuids": set(), "falhar": False, "lock": threading.Lock()}
 
@@ -241,7 +243,7 @@ class H(SimpleHTTPRequestHandler):
         celulas = []
         for i, ch in enumerate(chaves):
             if ch in vals and vals[ch] not in (None, ""):
-                col = (6 + i) if modo == "crescimento" else (BASE_DESCR + i)
+                col = (BASE_CRESC + i) if modo == "crescimento" else (BASE_DESCR + i)
                 celulas.append(f"{letra(col)}{2 + seq}")
 
         if not celulas:

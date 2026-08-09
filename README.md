@@ -81,8 +81,8 @@ Google Apps Script(ウェブアプリ)
 ## 現場での使い方
 
 1. **Que levantamento vai fazer?** — 調査の種類を選ぶ
-   - **Crescimento** … 高さ・樹冠・cachos(G〜L列)。半年ごとの定期調査
-   - **Descritores morfológicos** … 形態記載(M〜Y列)
+   - **Crescimento** … 高さ・樹冠・枝数・cachos(G〜M列)。半年ごとの定期調査
+   - **Descritores morfológicos** … 形態記載(N〜Z列)
 2. Crescimento の場合は **Ronda**(調査回)を入力。端末に記憶されるので毎回は不要
 3. **Fileira**(r01〜r16)を選び、テンキーで **その列の中での番号** を打つ
    (= シートの **D列「No. in row」**)
@@ -175,9 +175,9 @@ C列の No. は bag01 の 1〜30 と bag02 の 1〜5 が混在する。
 
 | | 挿入前 | 挿入後 |
 |---|---|---|
-| 生育調査(Crescimento) | F〜K | **G〜L** |
-| 形態記載(Descritores) | L〜X | **M〜Y** |
-| 新ラウンドの追加先 | Y以降 | **Z以降** |
+| 生育調査(Crescimento) | F〜K | **G〜L**(のち G〜M) |
+| 形態記載(Descritores) | L〜X | **M〜Y**(のち N〜Z) |
+| 新ラウンドの追加先 | Y以降 | **Z以降**(のち AA以降) |
 
 `Codigo.gs` の `CAMPOS_CRESCIMENTO` / `CAMPOS_DESCRITORES` の `col` と
 `COL_PRIMEIRO_BLOCO_RONDA` がこの並びを持っている。**シートの列を動かしたら
@@ -207,7 +207,24 @@ Kaz さんの指示(2026-08-09)で、横に2つ並べていた項目(Cnp-1/Cnp-2
 `▼` ボタンまたは Enter で次の項目へ進み、最後の項目で押すと保存・送信まで走る。
 **スマホの数字キーボードには Enter キーが無い**ので、`▼` ボタンが本命の導線。
 
-### 1e. 画面に英語を出さない
+### 1e. Brunch 列(2026-08-10 追加・⚠ 試験的)
+
+Kaz さんが `Data` の Cnp-2 と Fruit bunch の間に **`Brunch`** 列(枝数)を追加した。
+アプリ側は `ramos`(画面表示 `Ramos`、単位 `n.º`、整数)として対応済み。
+
+これにより測定列がもう1つ右へずれた。
+
+| | Brunch 追加前 | 追加後 |
+|---|---|---|
+| Crescimento | G〜L(6項目) | **G〜M(7項目)** |
+| Descritores | M〜Y | **N〜Z** |
+| 新ラウンド | Z以降・6列 | **AA以降・7列** |
+| `Log` の列数 | 35 | **36**(`Ramos (n.º)` が16列目) |
+
+**⚠ この項目を残すかは未定。** 戻し方は `HANDOVER.md` の「Brunch を元に戻す手順」に
+まとめてある。ロールバックは1コミットの `git revert` + シートの列削除2箇所で済む。
+
+### 1f. 画面に英語を出さない
 
 シートの値(ロット名 `India #bag01`、調査回 `5 month after planting (20260511)`)は
 英語のまま保存するが、画面には `Índia — saco 01` / `5 meses após a plantação (11/05/2026)`
@@ -226,8 +243,8 @@ Kaz さんの指示(2026-08-09)で、横に2つ並べていた項目(Cnp-1/Cnp-2
 
 ### 3. Crescimento の新しいラウンド
 
-G〜L の既存ブロック(`5 month after planting (20260511)`)は上書きしない。
-新しい Ronda 名で送信すると、シートの**末尾に6列の新ブロックを自動追加**して
+G〜M の既存ブロック(`5 month after planting (20260511)`)は上書きしない。
+新しい Ronda 名で送信すると、シートの**末尾に7列の新ブロックを自動追加**して
 そこに書く。1行目にラウンド名、2行目に項目名が入る。
 
 ### 4. Data への書き込みは「最新が勝つ」
@@ -242,7 +259,7 @@ G〜L の既存ブロック(`5 month after planting (20260511)`)は上書きし�
 置き換えた。旧ヘッダーは行1のみでデータ行は無かったため、失われたデータは無い。
 
 `Log` の列構成は Data の列位置に依存しないので、2026-08-09 の D列挿入では変わっていない。
-ただし `Levantamento` 列に入る文字列は `Crescimento (G-L)` / `Descritores (M-Y)` に変わった。
+ただし `Levantamento` 列に入る文字列は `Crescimento (G-M)` / `Descritores (N-Z)` に変わった。
 読み戻しは先頭一致(`Crescimento` で始まるか)で判定しているので、旧表記の行も正しく読める。
 
 構成: `Data/hora (aparelho)` / `Data/hora (servidor)` / `Registado por` / `Ação` /

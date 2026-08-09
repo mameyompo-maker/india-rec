@@ -29,20 +29,20 @@ ARRANQUE = """
 (() => {
   // folha Data: 2 linhas de cabecalho + 415 plantas (linhas 3..417), colunas A..Z
   // A..F sao identificacao (D = "No. in row", inserida em 2026-08-09),
-  // G..L o 1.o bloco de ronda, M..Y os descritores.
+  // G..M o 1.o bloco de ronda (com 'Brunch'), N..Z os descritores.
   LIVRO.folhas['Data'] = criarFolha('Data', 440, 26);
   const d = LIVRO.folhas['Data'];
   d.getRange(1, 1, 1, 6).setValues([['Plant ID','Row','No.','No. in row','Source','1st Flwr']]);
   d.getRange(1, 7).setValue('5 month after planting (20260511)');
-  const sub = ['Plant Hight','Cnp-1','Cnp-2','Fruit bunch','Flower bunch','Flower bud bunch'];
-  d.getRange(2, 7, 1, 6).setValues([sub]);
-  d.getRange(1, 13).setValue('Growth habit');
-  d.getRange(1, 25).setValue('Seed width (cm)');
+  const sub = ['Plant Hight','Cnp-1','Cnp-2','Brunch','Fruit bunch','Flower bunch','Flower bud bunch'];
+  d.getRange(2, 7, 1, 7).setValues([sub]);
+  d.getRange(1, 14).setValue('Growth habit');
+  d.getRange(1, 26).setValue('Seed width (cm)');
   for (let i = 0; i < 415; i++) {
     const seq = String(i + 1).padStart(3, '0');
     d.getRange(3 + i, 1).setValue('NBF(Tanheia)26-' + seq);
-    // G..L ja preenchidas, como na folha real
-    d.getRange(3 + i, 7, 1, 6).setValues([[1, 0.6, 0.7, 0, 8, 16]]);
+    // G..M ja preenchidas, como na folha real
+    d.getRange(3 + i, 7, 1, 7).setValues([[1, 0.6, 0.7, 2, 0, 8, 16]]);
   }
 
   // folha Log so com a linha de cabecalho, como esta agora
@@ -106,7 +106,7 @@ def main():
 
         print("\n[2] constantes de coluna do Log")
         n_cab = pag.evaluate("CABECALHO_LOG.length")
-        ok(n_cab == 35, f"cabecalho tem 35 colunas ({n_cab})")
+        ok(n_cab == 36, f"cabecalho tem 36 colunas ({n_cab})")
         ok(pag.evaluate("CABECALHO_LOG[COL_UUID-1]") == "ID do envio", "COL_UUID aponta para 'ID do envio'")
         ok(pag.evaluate("CABECALHO_LOG[COL_SUBSTITUI-1]") == "Substitui o envio", "COL_SUBSTITUI certo")
         ok(pag.evaluate("CABECALHO_LOG[COL_ESTADO-1]") == "Estado", "COL_ESTADO certo")
@@ -136,32 +136,32 @@ def main():
         ok(r["ok"] and res["ok"], "aceite", res)
         ok(res["accao"] == "Registo", f"accao=Registo ({res.get('accao')})")
         ok(res["linha"] == 47, f"planta 45 -> linha 47 ({res.get('linha')})")
-        ok(sorted(res["celulas"]) == ["M47", "N47", "U47"],
+        ok(sorted(res["celulas"]) == ["N47", "O47", "V47"],
            f"escreveu so as celulas preenchidas ({res.get('celulas')})")
 
-        lx = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 13, 25)")
-        ok(lx[0] == "Vertical", f"M47 = Vertical ({lx[0]})")
-        ok(lx[1] == 12.5, f"N47 = 12.5 ({lx[1]})")
-        ok(lx[8] == "Red", f"U47 = Red ({lx[8]})")
+        lx = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 14, 26)")
+        ok(lx[0] == "Vertical", f"N47 = Vertical ({lx[0]})")
+        ok(lx[1] == 12.5, f"O47 = 12.5 ({lx[1]})")
+        ok(lx[8] == "Red", f"V47 = Red ({lx[8]})")
         ok(all(v == "" for i, v in enumerate(lx) if i not in (0, 1, 8)),
            "os campos nao preenchidos ficaram vazios")
 
-        fk = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 7, 12)")
-        ok(fk == [1, 0.6, 0.7, 0, 8, 16], f"G..L nao foi tocado ({fk})")
+        fk = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 7, 13)")
+        ok(fk == [1, 0.6, 0.7, 2, 0, 8, 16], f"G..M nao foi tocado ({fk})")
 
-        cab = pag.evaluate("colunas(LIVRO.folhas['Log'], 1, 1, 35)")
-        ok(cab[3] == "Acção" and cab[34] == "Estado", "o Log ganhou o cabecalho certo")
-        l2 = pag.evaluate("colunas(LIVRO.folhas['Log'], 2, 1, 35)")
-        ok(len(l2) == 35, "linha do Log com 35 colunas")
+        cab = pag.evaluate("colunas(LIVRO.folhas['Log'], 1, 1, 36)")
+        ok(cab[3] == "Acção" and cab[35] == "Estado", "o Log ganhou o cabecalho certo")
+        l2 = pag.evaluate("colunas(LIVRO.folhas['Log'], 2, 1, 36)")
+        ok(len(l2) == 36, "linha do Log com 36 colunas")
         ok(l2[2] == "Cheia", f"Registado por ({l2[2]})")
         ok(l2[3] == "Registo", f"Acção ({l2[3]})")
-        ok(l2[4] == "Descritores (M-Y)", f"Levantamento ({l2[4]})")
+        ok(l2[4] == "Descritores (N-Z)", f"Levantamento ({l2[4]})")
         ok(l2[6] == "NBF(Tanheia)26-045", f"Plant ID ({l2[6]})")
         ok(l2[11] == 47, f"Linha em Data ({l2[11]})")
-        ok(l2[19] == 12.5, f"Limbo foliar na coluna T do Log ({l2[19]})")
-        ok(l2[18] == "Vertical", f"Habito na coluna S do Log ({l2[18]})")
-        ok(l2[31] == "u1", f"ID do envio ({l2[31]})")
-        ok(l2[34] == "OK", f"Estado ({l2[34]})")
+        ok(l2[20] == 12.5, f"Limbo foliar no Log ({l2[20]})")
+        ok(l2[19] == "Vertical", f"Habito no Log ({l2[19]})")
+        ok(l2[32] == "u1", f"ID do envio ({l2[32]})")
+        ok(l2[35] == "OK", f"Estado ({l2[35]})")
 
         print("\n[5] deduplicacao pelo ID do envio")
         r = post(pag, [envio()])
@@ -172,27 +172,27 @@ def main():
         r = post(pag, [envio(uuid="u2", substitui="u1", values={"limboFoliar": 14})])
         res = r["resultados"][0]
         ok(res["ok"] and res["accao"] == "Correcção", f"marcada como Correcção ({res.get('accao')})")
-        lx = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 13, 25)")
+        lx = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 14, 26)")
         ok(lx[1] == 14, f"M47 actualizado ({lx[1]})")
         ok(lx[0] == "Vertical", f"L47 preservado apesar de vir vazio ({lx[0]})")
         ok(lx[8] == "Red", f"T47 preservado ({lx[8]})")
-        l3 = pag.evaluate("colunas(LIVRO.folhas['Log'], 3, 1, 35)")
-        ok(l3[32] == "u1", f"Substitui o envio ({l3[32]})")
+        l3 = pag.evaluate("colunas(LIVRO.folhas['Log'], 3, 1, 36)")
+        ok(l3[33] == "u1", f"Substitui o envio ({l3[33]})")
 
         print("\n[7] registo de outra pessoa e recusado")
         r = post(pag, [envio(uuid="u3", recorder="Joana", values={"limboFoliar": 99})])
         res = r["resultados"][0]
         ok(res["ok"] is False, "a Joana nao consegue escrever por cima da Cheia")
         ok("Cheia" in res["erro"], f"a mensagem diz de quem e ({res.get('erro')})")
-        lx = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 13, 25)")
+        lx = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 14, 26)")
         ok(lx[1] == 14, f"o valor da Cheia ficou intacto ({lx[1]})")
-        l4 = pag.evaluate("colunas(LIVRO.folhas['Log'], 4, 1, 35)")
-        ok(str(l4[34]).startswith("ERRO:"), f"a recusa fica registada no Log ({l4[34]})")
+        l4 = pag.evaluate("colunas(LIVRO.folhas['Log'], 4, 1, 36)")
+        ok(str(l4[35]).startswith("ERRO:"), f"a recusa fica registada no Log ({l4[35]})")
 
         print("\n[8] o administrador consegue")
         r = post(pag, [envio(uuid="u4", recorder="Joana", values={"limboFoliar": 21})], admin=ADMIN)
         ok(r["resultados"][0]["ok"], "com a palavra-passe passa", r["resultados"][0])
-        ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 13, 25)")[1] == 21, "o valor foi corrigido")
+        ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 14, 26)")[1] == 21, "o valor foi corrigido")
         r = post(pag, [envio(uuid="u5", recorder="Pedro", values={"limboFoliar": 22})], admin="errada")
         ok(r["resultados"][0]["ok"] is False, "com a palavra-passe errada nao passa")
 
@@ -233,23 +233,23 @@ def main():
         res = r["resultados"][0]
         ok(res["ok"], "aceite", res)
         depois = pag.evaluate("LIVRO.folhas['Data'].getLastColumn()")
-        ok(depois == antes + 6, f"acrescentou 6 colunas ({antes} -> {depois})")
-        cab1 = pag.evaluate("colunas(LIVRO.folhas['Data'], 1, 26, 31)")
-        cab2 = pag.evaluate("colunas(LIVRO.folhas['Data'], 2, 26, 31)")
+        ok(depois == antes + 7, f"acrescentou 7 colunas ({antes} -> {depois})")
+        cab1 = pag.evaluate("colunas(LIVRO.folhas['Data'], 1, 27, 33)")
+        cab2 = pag.evaluate("colunas(LIVRO.folhas['Data'], 2, 27, 33)")
         ok(cab1[0] == "11 month (20261111)", f"linha 1 com o nome da ronda ({cab1[0]})")
-        ok(cab2[0] == "Altura da planta (m)" and cab2[3] == "Cachos de frutos (n.º)",
+        ok(cab2[0] == "Altura da planta (m)" and cab2[4] == "Cachos de frutos (n.º)",
            f"linha 2 com os campos ({cab2})")
-        novo = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 26, 31)")
-        ok(novo[0] == 1.4 and novo[3] == 3, f"valores no bloco novo ({novo})")
-        fk = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 7, 12)")
-        ok(fk == [1, 0.6, 0.7, 0, 8, 16], f"a ronda antiga (G..L) continua intacta ({fk})")
+        novo = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 27, 33)")
+        ok(novo[0] == 1.4 and novo[4] == 3, f"valores no bloco novo ({novo})")
+        fk = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 7, 13)")
+        ok(fk == [1, 0.6, 0.7, 2, 0, 8, 16], f"a ronda antiga (G..M) continua intacta ({fk})")
 
         print("\n[12] a mesma ronda reutiliza o bloco")
         r = post(pag, [envio(uuid="c2", seq=46, pid="NBF(Tanheia)26-046", mode="crescimento",
                              ronda="11 month (20261111)", values={"alturaPlanta": 0.9})])
         ok(r["resultados"][0]["ok"], "aceite")
         ok(pag.evaluate("LIVRO.folhas['Data'].getLastColumn()") == depois, "nao criou outro bloco")
-        ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 48, 26, 31)")[0] == 0.9, "escreveu na linha certa")
+        ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 48, 27, 33)")[0] == 0.9, "escreveu na linha certa")
 
         print("\n[13] crescimento sem ronda e recusado")
         r = post(pag, [envio(uuid="c3", mode="crescimento", ronda="",
@@ -305,21 +305,21 @@ def main():
                       recorder="Cheia", values={"limboFoliar": 5 + i}) for i in range(10)]
         r = post(pag, lote)
         ok(all(x["ok"] for x in r["resultados"]), "os 10 passaram")
-        ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 302, 13, 25)")[1] == 5, "primeiro do lote")
-        ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 311, 13, 25)")[1] == 14, "ultimo do lote")
+        ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 302, 14, 26)")[1] == 5, "primeiro do lote")
+        ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 311, 14, 26)")[1] == 14, "ultimo do lote")
 
         print("\n[18] eliminar um registo")
         # regista a planta 320 e confirma que ficou escrita
         post(pag, [envio(uuid="e0", seq=320, pid="NBF(Tanheia)26-320", recorder="Cheia",
                          values={"limboFoliar": 7.5, "corFruto": "vermelho"})])
-        antes = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 13, 25)")
+        antes = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 14, 26)")
         ok(antes[1] == 7.5 and antes[8] == "Red", f"escrita antes de eliminar ({antes[1]}, {antes[8]})")
 
         # quem nao e o dono nao pode eliminar
         r = post(pag, [envio(uuid="e1", seq=320, pid="NBF(Tanheia)26-320",
                              recorder="Joana", accao="eliminar", values={})])
         ok(r["resultados"][0]["ok"] is False, "outra pessoa nao pode eliminar")
-        depois = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 13, 25)")
+        depois = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 14, 26)")
         ok(depois[1] == 7.5, "a recusa nao apagou nada")
 
         # o dono elimina
@@ -327,15 +327,15 @@ def main():
                              recorder="Cheia", accao="eliminar", values={})])
         res = r["resultados"][0]
         ok(res["ok"] and res["accao"] == "Eliminação", f"eliminado ({res.get('accao')})")
-        vazio = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 13, 25)")
+        vazio = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 14, 26)")
         ok(all(v == "" for v in vazio), f"as celulas do levantamento ficaram vazias ({vazio})")
 
         # o Log guarda o que la estava
         n = pag.evaluate("LIVRO.folhas['Log'].getLastRow()")
-        ult = pag.evaluate("colunas(LIVRO.folhas['Log'], %d, 1, 35)" % n)
+        ult = pag.evaluate("colunas(LIVRO.folhas['Log'], %d, 1, 36)" % n)
         ok(ult[3] == "Eliminação", f"Acção = Eliminação ({ult[3]})")
-        ok(ult[19] == 7.5, f"o Log guardou o valor apagado ({ult[19]})")
-        ok(ult[34] == "OK", f"Estado OK ({ult[34]})")
+        ok(ult[20] == 7.5, f"o Log guardou o valor apagado ({ult[20]})")
+        ok(ult[35] == "OK", f"Estado OK ({ult[35]})")
 
         # deixa de contar como feita e volta a poder ser registada por outra pessoa
         j = get(pag, {"action": "estado", "mode": "descritores"})
@@ -355,7 +355,7 @@ def main():
         print("\n[19] funcao diagnostico()")
         d = pag.evaluate("diagnostico()")
         ok("doGet definido     : true" in d, "confirma que o doGet existe", d)
-        ok("colunas do Log     : 35" in d, "conta as colunas do Log", d)
+        ok("colunas do Log     : 36" in d, "conta as colunas do Log", d)
         ok("tem a correccao do dono : true" in d, "deteta se a versao e a actual", d)
         ok("Aba Data           : 417 linhas" in d, "chega a folha Data", d)
         ok('"ok":true' in d, "o doGet responde de verdade", d)
