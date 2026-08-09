@@ -27,7 +27,7 @@ COLS_DESCR = ["habitoCrescimento", "limboFoliar", "peciolo", "folhaComprimento",
               "corFruto", "frutoComprimento", "frutoLargura", "sementeComprimento",
               "sementeLargura"]
 BASE_DESCR = 12  # coluna L
-ROTULO = {"crescimento": "Crescimento (F-K)", "descritores": "Descritores (L-X)"}
+ROTULO = {"crescimento": "Crescimento (G-L)", "descritores": "Descritores (M-Y)"}
 
 E = {"log": [], "uuids": set(), "falhar": False, "lock": threading.Lock()}
 

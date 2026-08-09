@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
 """Gera plants.json a partir da estrutura conhecida da folha 'Data'.
 
-Estrutura verificada em 2026-08-08 lendo Data!A3:D400 (398 plantas, linhas 3..400):
+Estrutura verificada em 2026-08-08, actualizada em 2026-08-09 (398 plantas, linhas 3..400):
 
   * Plant ID  : NBF(Tanheia)26-001 .. -398  (contiguo, linha da folha = 2 + n)
   * Coluna B  : etiqueta de fileira (r01..r15), preenchida so na 1a planta do bloco
-  * Coluna C  : "No." -- reinicia a cada LOTE DE SEMENTE (coluna D), NAO a cada fileira
-  * Coluna D  : Source / lote, preenchido so na 1a planta do bloco
+  * Coluna C  : "No." -- reinicia a cada LOTE DE SEMENTE, NAO a cada fileira
+  * Coluna D  : "No. in row" -- posicao dentro da fileira. Inserida em 2026-08-09
+                a pedido do Kaz-san; e exactamente o 'noFileira' que este script gera
+  * Coluna E  : Source / lote, preenchido so na 1a planta do bloco
 
-Por isso (fileira, No. da folha) NAO e unico: 323 pares unicos para 398 plantas.
+(fileira, No. da coluna C) NAO e unico: 323 pares unicos para 398 plantas.
 O app usa 'noFileira' = posicao dentro da fileira (1..N), que e unico por construcao,
-e mostra tambem 'noFolha' + 'source' para o utilizador poder conferir no terreno.
+e mostra tambem 'noFolha' (coluna C) + 'source' para conferir no terreno.
+
+ATENCAO: a insercao da coluna D empurrou as colunas de medicao de F..X para G..Y.
+Este script nao escreve nessas colunas, mas o Codigo.gs sim — ver README.
 
 O ficheiro gerado guarda so os DOIS blocos (fileiras e lotes). O app expande-os em
 memoria no arranque -- 398 objectos escritos a mao ocupavam 47 kB, isto ocupa <1 kB.

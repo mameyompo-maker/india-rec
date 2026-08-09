@@ -43,30 +43,47 @@ var VALOR_COR = {
   vermelho: 'Red'
 };
 
+/* Colunas da folha Data. Em 2026-08-09 foi inserida a coluna D ("No. in row"),
+ * por isso tudo o que estava em F..X passou a estar em G..Y. */
 var CAMPOS_CRESCIMENTO = [
-  { chave: 'alturaPlanta',  col: 6,  rotulo: 'Altura da planta (m)',            tipo: 'num' },
-  { chave: 'cnp1',          col: 7,  rotulo: 'Cnp-1 (m)',                       tipo: 'num' },
-  { chave: 'cnp2',          col: 8,  rotulo: 'Cnp-2 (m)',                       tipo: 'num' },
-  { chave: 'cachosFrutos',  col: 9,  rotulo: 'Cachos de frutos (n.º)',          tipo: 'int' },
-  { chave: 'cachosFlores',  col: 10, rotulo: 'Cachos de flores (n.º)',          tipo: 'int' },
-  { chave: 'cachosBotoes',  col: 11, rotulo: 'Cachos de botões florais (n.º)',  tipo: 'int' }
+  { chave: 'alturaPlanta',  col: 7,  rotulo: 'Altura da planta (m)',            tipo: 'num' },
+  { chave: 'cnp1',          col: 8,  rotulo: 'Cnp-1 (m)',                       tipo: 'num' },
+  { chave: 'cnp2',          col: 9,  rotulo: 'Cnp-2 (m)',                       tipo: 'num' },
+  { chave: 'cachosFrutos',  col: 10, rotulo: 'Cachos de frutos (n.º)',          tipo: 'int' },
+  { chave: 'cachosFlores',  col: 11, rotulo: 'Cachos de flores (n.º)',          tipo: 'int' },
+  { chave: 'cachosBotoes',  col: 12, rotulo: 'Cachos de botões florais (n.º)',  tipo: 'int' }
 ];
 
 var CAMPOS_DESCRITORES = [
-  { chave: 'habitoCrescimento',  col: 12, rotulo: 'Hábito de crescimento',              tipo: 'habito' },
-  { chave: 'limboFoliar',        col: 13, rotulo: 'Limbo foliar (cm)',                  tipo: 'num' },
-  { chave: 'peciolo',            col: 14, rotulo: 'Pecíolo (cm)',                       tipo: 'num' },
-  { chave: 'folhaComprimento',   col: 15, rotulo: 'Folha - comprimento (cm)',           tipo: 'num' },
-  { chave: 'folhaLargura',       col: 16, rotulo: 'Folha - largura (cm)',               tipo: 'num' },
-  { chave: 'lobulosFolha',       col: 17, rotulo: 'Lóbulos da folha (n.º)',             tipo: 'int' },
-  { chave: 'corInflorMasc',      col: 18, rotulo: 'Cor da inflorescência - masculina',  tipo: 'cor' },
-  { chave: 'corInflorFem',       col: 19, rotulo: 'Cor da inflorescência - feminina',   tipo: 'cor' },
-  { chave: 'corFruto',           col: 20, rotulo: 'Cor do fruto',                       tipo: 'cor' },
-  { chave: 'frutoComprimento',   col: 21, rotulo: 'Comprimento do fruto (cm)',          tipo: 'num' },
-  { chave: 'frutoLargura',       col: 22, rotulo: 'Largura do fruto (cm)',              tipo: 'num' },
-  { chave: 'sementeComprimento', col: 23, rotulo: 'Comprimento da semente (cm)',        tipo: 'num' },
-  { chave: 'sementeLargura',     col: 24, rotulo: 'Largura da semente (cm)',            tipo: 'num' }
+  { chave: 'habitoCrescimento',  col: 13, rotulo: 'Hábito de crescimento',              tipo: 'habito' },
+  { chave: 'limboFoliar',        col: 14, rotulo: 'Limbo foliar (cm)',                  tipo: 'num' },
+  { chave: 'peciolo',            col: 15, rotulo: 'Pecíolo (cm)',                       tipo: 'num' },
+  { chave: 'folhaComprimento',   col: 16, rotulo: 'Folha - comprimento (cm)',           tipo: 'num' },
+  { chave: 'folhaLargura',       col: 17, rotulo: 'Folha - largura (cm)',               tipo: 'num' },
+  { chave: 'lobulosFolha',       col: 18, rotulo: 'Lóbulos da folha (n.º)',             tipo: 'int' },
+  { chave: 'corInflorMasc',      col: 19, rotulo: 'Cor da inflorescência - masculina',  tipo: 'cor' },
+  { chave: 'corInflorFem',       col: 20, rotulo: 'Cor da inflorescência - feminina',   tipo: 'cor' },
+  { chave: 'corFruto',           col: 21, rotulo: 'Cor do fruto',                       tipo: 'cor' },
+  { chave: 'frutoComprimento',   col: 22, rotulo: 'Comprimento do fruto (cm)',          tipo: 'num' },
+  { chave: 'frutoLargura',       col: 23, rotulo: 'Largura do fruto (cm)',              tipo: 'num' },
+  { chave: 'sementeComprimento', col: 24, rotulo: 'Comprimento da semente (cm)',        tipo: 'num' },
+  { chave: 'sementeLargura',     col: 25, rotulo: 'Largura da semente (cm)',            tipo: 'num' }
 ];
+
+/** Primeira coluna do 1.º bloco de ronda em Data (G). A..F sao identificacao. */
+var COL_PRIMEIRO_BLOCO_RONDA = 7;
+
+/**
+ * A linha 1 da folha Data tem cabecalhos de tres tipos: identificacao (A..F),
+ * blocos de ronda (G..L e depois tudo o que for acrescentado a direita) e o bloco
+ * dos descritores (M..Y). So os do meio sao nomes de ronda — sem este filtro,
+ * "Growth habit" e "Seed width (cm)" apareciam na lista de rondas.
+ */
+function ehColunaDeRonda_(c) {
+  var pri = CAMPOS_DESCRITORES[0].col;
+  var ult = CAMPOS_DESCRITORES[CAMPOS_DESCRITORES.length - 1].col;
+  return c >= COL_PRIMEIRO_BLOCO_RONDA && !(c >= pri && c <= ult);
+}
 
 var TODOS_CAMPOS = CAMPOS_CRESCIMENTO.concat(CAMPOS_DESCRITORES);
 
@@ -91,7 +108,16 @@ var COL_UUID = 12 + TODOS_CAMPOS.length + 1;       // AF = 32
 var COL_SUBSTITUI = COL_UUID + 1;                  // AG
 var COL_ESTADO = COL_UUID + 3;                     // AI
 
-var ROTULO_MODO = { crescimento: 'Crescimento (F-K)', descritores: 'Descritores (L-X)' };
+var ROTULO_MODO = { crescimento: 'Crescimento (G-L)', descritores: 'Descritores (M-Y)' };
+
+/**
+ * Le o modo a partir do texto gravado na coluna Levantamento do Log.
+ * Compara so o prefixo: as letras das colunas ja mudaram uma vez (F-K -> G-L) e
+ * podem voltar a mudar, e as linhas antigas do Log tem de continuar a ser lidas.
+ */
+function modoDoRotulo_(levant) {
+  return String(levant || '').indexOf('Crescimento') === 0 ? 'crescimento' : 'descritores';
+}
 
 // ---------------------------------------------------------------- utilitarios
 
@@ -166,6 +192,7 @@ function colunaBlocoRonda_(folha, ronda) {
   var linha1 = folha.getRange(1, 1, 1, ultima).getValues()[0];
 
   for (var i = 0; i < linha1.length; i++) {
+    if (!ehColunaDeRonda_(i + 1)) continue;   // nunca escrever por cima dos descritores
     if (String(linha1[i]).trim() !== '' && String(linha1[i]).trim() === ronda) return i + 1;
   }
 
@@ -226,7 +253,7 @@ function lerIndice_(log) {
     var pid = String(meta[i][4]).trim();
     if (!pid) continue;
 
-    var modo = (levant === ROTULO_MODO.crescimento) ? 'crescimento' : 'descritores';
+    var modo = modoDoRotulo_(levant);
     var k = chave_(modo, ronda, pid);
     var ja = idx.porChave[k];
 
@@ -444,7 +471,8 @@ function estado_(ss, log, p) {
   var dados = ss.getSheetByName(FOLHA_DADOS);
   var linha1 = dados.getRange(1, 1, 1, dados.getLastColumn()).getValues()[0];
   var rondas = [];
-  for (var i = 5; i < linha1.length; i++) {
+  for (var i = COL_PRIMEIRO_BLOCO_RONDA - 1; i < linha1.length; i++) {
+    if (!ehColunaDeRonda_(i + 1)) continue;
     var s = String(linha1[i]).trim();
     if (s) rondas.push(s);
   }
@@ -497,7 +525,7 @@ function registo_(log, p) {
     var meta = log.getRange(l, 1, 1, COL_PID).getValues()[0];
     var brutos = log.getRange(l, COL_PRIMEIRO_CAMPO, 1, TODOS_CAMPOS.length).getValues()[0];
     var levant = String(meta[COL_LEVANTAMENTO - 1]).trim();
-    var modo = levant === ROTULO_MODO.crescimento ? 'crescimento' : 'descritores';
+    var modo = modoDoRotulo_(levant);
 
     var values = {};
     for (var j = 0; j < TODOS_CAMPOS.length; j++) {

@@ -32,7 +32,7 @@ var HABITOS = [
 var LEVANTAMENTOS = {
   crescimento: {
     titulo: 'Crescimento',
-    colunas: 'F–K',
+    colunas: 'G–L',
     grupos: [
       {
         nome: 'Porte da planta',
@@ -54,7 +54,7 @@ var LEVANTAMENTOS = {
   },
   descritores: {
     titulo: 'Descritores morfológicos',
-    colunas: 'L–X',
+    colunas: 'M–Y',
     grupos: [
       {
         nome: 'Hábito',
@@ -634,7 +634,7 @@ function resolverPlanta() {
   cx.className = '';
   cx.innerHTML = '<b>' + esc(p.pid) + '</b>' + extra + '<br>' +
     'Fileira ' + p.row + ', n.º ' + p.noFileira + ' &nbsp;·&nbsp; lote ' + esc(p.source) +
-    ' (n.º ' + p.noFolha + ' na folha)';
+    ' (n.º ' + p.noFolha + ' no lote)';
   $('btnPlanta').disabled = !!(quem && !podeEditar(quem));
 }
 
