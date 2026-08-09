@@ -226,9 +226,16 @@ function lerIndice_(log) {
     if (!pid) continue;
 
     var modo = (levant === ROTULO_MODO.crescimento) ? 'crescimento' : 'descritores';
-    // linhas mais recentes sobrepoem-se as antigas
-    idx.porChave[chave_(modo, ronda, pid)] = {
-      recorder: recorder, uuid: uuid, linha: i + 2, modo: modo, ronda: ronda, pid: pid
+    var k = chave_(modo, ronda, pid);
+    var ja = idx.porChave[k];
+
+    /* As linhas vem por ordem, por isso a primeira que aparece e a criacao.
+     * O DONO e quem criou — nao muda quando um administrador corrige, senao a
+     * pessoa que fez a medicao deixava de poder mexer no proprio registo. */
+    idx.porChave[k] = {
+      dono: ja ? ja.dono : recorder,
+      recorder: recorder,              // quem fez a alteracao mais recente
+      uuid: uuid, linha: i + 2, modo: modo, ronda: ronda, pid: pid
     };
   }
   return idx;
@@ -315,39 +322,45 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
     var accao = anterior ? 'Correcção' : 'Registo';
     if (anterior && !admin) {
       var meu = String(ent.recorder || '').trim();
-      if (anterior.recorder && anterior.recorder !== meu) {
-        throw new Error('Esta planta foi registada por ' + anterior.recorder +
+      if (anterior.dono && anterior.dono !== meu) {
+        throw new Error('Esta planta foi registada por ' + anterior.dono +
                         '. Só essa pessoa (ou um administrador) a pode corrigir.');
       }
     }
 
-    var colBase = (modo === 'crescimento') ? colunaBlocoRonda_(dados, ronda) : null;
+    // As colunas de cada levantamento sao contiguas (F..K ou L..X), por isso
+    // trata-se o bloco todo de uma vez: uma leitura e uma escrita por planta,
+    // em vez de ate 19 chamadas soltas. Com lotes de 25 envios a diferenca e
+    // entre umas centenas de chamadas e umas dezenas.
+    var colInicio = (modo === 'crescimento') ? colunaBlocoRonda_(dados, ronda) : campos[0].col;
+    var bloco = dados.getRange(linha, colInicio, 1, campos.length);
+    var actuais = bloco.getValues()[0];
 
     // normaliza tudo antes de escrever, para nao deixar escritas a meio
     var valores = ent.values || {};
     var escritas = [];
     for (var i = 0; i < campos.length; i++) {
-      var c = campos[i];
-      var v = normalizar_(c, valores[c.chave]);
+      var v = normalizar_(campos[i], valores[campos[i].chave]);
       if (v !== null) {
-        escritas.push({ col: (colBase === null) ? c.col : (colBase + i), valor: v });
+        actuais[i] = v;                       // campo vazio nao apaga o que la esta
+        escritas.push(colInicio + i);
       }
     }
     if (!escritas.length) throw new Error('Nenhum valor preenchido.');
 
-    for (var j = 0; j < escritas.length; j++) {
-      dados.getRange(linha, escritas[j].col).setValue(escritas[j].valor);
-    }
+    bloco.setValues([actuais]);
 
     linhasLog.push(montarLinhaLog_(ent, uuid, linha, accao, 'OK'));
     idx.uuids[uuid] = true;
+    var quem = String(ent.recorder || '').trim();
     idx.porChave[chave_(modo, ronda, pidFolha)] = {
-      recorder: String(ent.recorder || '').trim(), uuid: uuid, modo: modo, ronda: ronda, pid: pidFolha
+      dono: anterior ? anterior.dono : quem,
+      recorder: quem, uuid: uuid, modo: modo, ronda: ronda, pid: pidFolha
     };
 
     return {
       ok: true, uuid: uuid, linha: linha, accao: accao,
-      celulas: escritas.map(function (x) { return letraColuna_(x.col) + linha; })
+      celulas: escritas.map(function (col) { return letraColuna_(col) + linha; })
     };
   } catch (err) {
     var msg = String(err && err.message || err);
@@ -423,7 +436,7 @@ function estado_(ss, log, p) {
     if (r.modo !== modo) continue;
     if (modo === 'crescimento' && r.ronda !== ronda) continue;
     var m = /-(\d{3})$/.exec(r.pid);
-    if (m) feitas.push([parseInt(m[1], 10), r.recorder]);
+    if (m) feitas.push([parseInt(m[1], 10), r.dono]);   // o dono e quem pode corrigir
   }
   feitas.sort(function (a, b) { return a[0] - b[0]; });
 
@@ -445,23 +458,22 @@ function historico_(log, p) {
   var n = log.getLastRow();
   if (n < 2) return { ok: true, hora: agora_(), registos: [] };
 
-  var linhasQuero = [];
-  for (var k in idx.porChave) linhasQuero.push(idx.porChave[k].linha);
-  linhasQuero.sort(function (a, b) { return b - a; });
-  linhasQuero = linhasQuero.slice(0, limite);
+  var entradas = [];
+  for (var k in idx.porChave) entradas.push(idx.porChave[k]);
+  entradas.sort(function (a, b) { return b.linha - a.linha; });
+  entradas = entradas.slice(0, limite);
 
-  var registos = linhasQuero.map(function (l) {
-    var meta = log.getRange(l, 1, 1, COL_PID).getValues()[0];
-    var uuid = String(log.getRange(l, COL_UUID).getValue()).trim();
-    var levant = String(meta[COL_LEVANTAMENTO - 1]).trim();
+  var registos = entradas.map(function (e) {
+    var meta = log.getRange(e.linha, 1, 1, COL_PID).getValues()[0];
     return {
-      uuid: uuid,
+      uuid: e.uuid,
       ts: String(meta[0]),
-      recorder: String(meta[COL_RECORDER - 1]),
+      recorder: e.dono,                          // quem manda nas permissoes
+      ultimo: e.recorder,                        // quem mexeu por ultimo
       accao: String(meta[COL_ACCAO - 1]),
-      mode: levant === ROTULO_MODO.crescimento ? 'crescimento' : 'descritores',
-      ronda: String(meta[COL_RONDA - 1]),
-      pid: String(meta[COL_PID - 1])
+      mode: e.modo,
+      ronda: e.ronda,
+      pid: e.pid
     };
   });
 

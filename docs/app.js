@@ -863,7 +863,7 @@ function desenharHistorico() {
         cadeado: !meu,
         pid: r.pid,
         linha2: (LEVANTAMENTOS[r.mode] || {}).titulo + ' · ' + r.recorder +
-                (r.accao === 'Correcção' ? ' · correcção' : ''),
+                (r.ultimo && r.ultimo !== r.recorder ? ' · corrigido por ' + r.ultimo : ''),
         quando: String(r.ts).slice(0, 16),
         podeAbrir: meu,
         abrir: function () { abrirDoServidor(r); }
