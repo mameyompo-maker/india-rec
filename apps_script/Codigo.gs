@@ -53,8 +53,8 @@ var VALOR_COR = {
 
 /* Colunas da folha Data.
  *   2026-08-09  entra a coluna D ("No. in row"):  F..X  ->  G..Y
- *   2026-08-10  entra "Brunch" no bloco da ronda: G..L  ->  G..M  e  M..Y -> N..Z
- * REVERSAO: se o campo "Brunch" for retirado da folha, apagar a linha de 'ramos',
+ *   2026-08-10  entra "Branch" no bloco da ronda: G..L  ->  G..M  e  M..Y -> N..Z
+ * REVERSAO: se o campo "Branch" for retirado da folha, apagar a linha de 'ramos',
  * baixar 1 em cada col abaixo dela, e por ROTULO_MODO de volta a (G-L)/(M-Y). */
 var CAMPOS_CRESCIMENTO = [
   { chave: 'alturaPlanta',  col: 7,  rotulo: 'Altura da planta (m)',            tipo: 'num' },
@@ -212,7 +212,7 @@ function colunaBlocoRonda_(folha, ronda) {
   }
 
   // a largura do bloco e o numero de campos — estava fixa em 6 e partiu-se
-  // quando a folha ganhou a coluna "Brunch"
+  // quando a folha ganhou a coluna "Branch"
   var largura = CAMPOS_CRESCIMENTO.length;
   var inicio = ultima + 1;
   var precisa = inicio + largura - 1;

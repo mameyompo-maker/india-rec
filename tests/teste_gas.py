@@ -29,12 +29,12 @@ ARRANQUE = """
 (() => {
   // folha Data: 2 linhas de cabecalho + 415 plantas (linhas 3..417), colunas A..Z
   // A..F sao identificacao (D = "No. in row", inserida em 2026-08-09),
-  // G..M o 1.o bloco de ronda (com 'Brunch'), N..Z os descritores.
+  // G..M o 1.o bloco de ronda (com 'Branch'), N..Z os descritores.
   LIVRO.folhas['Data'] = criarFolha('Data', 440, 26);
   const d = LIVRO.folhas['Data'];
   d.getRange(1, 1, 1, 6).setValues([['Plant ID','Row','No.','No. in row','Source','1st Flwr']]);
   d.getRange(1, 7).setValue('5 month after planting (20260511)');
-  const sub = ['Plant Hight','Cnp-1','Cnp-2','Brunch','Fruit bunch','Flower bunch','Flower bud bunch'];
+  const sub = ['Plant Hight','Cnp-1','Cnp-2','Branch','Fruit bunch','Flower bunch','Flower bud bunch'];
   d.getRange(2, 7, 1, 7).setValues([sub]);
   d.getRange(1, 14).setValue('Growth habit');
   d.getRange(1, 26).setValue('Seed width (cm)');
