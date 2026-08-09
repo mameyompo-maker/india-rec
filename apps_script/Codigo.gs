@@ -24,6 +24,14 @@ var FUSO = 'Africa/Maputo';
 var LINHA_PRIMEIRA_PLANTA = 3;   // Data!A3 = NBF(Tanheia)26-001
 var TOTAL_PLANTAS = 398;
 
+/**
+ * Versao deste ficheiro. Vai em TODAS as respostas, inclusive nas de token errado,
+ * para se poder ver de fora qual e a versao que esta mesmo implantada — sem isto
+ * nao se distingue "colei mal" de "implantei a versao antiga".
+ * Subir sempre que o Codigo.gs for alterado.
+ */
+var VERSAO_CODIGO = '2026-08-09c';
+
 function prop_(nome, porOmissao) {
   var v = PropertiesService.getScriptProperties().getProperty(nome);
   return (v === null || v === '') ? porOmissao : v;
@@ -288,7 +296,7 @@ function doPost(e) {
     }
 
     if (!getToken() || pedido.token !== getToken()) {
-      return jsonOut_({ ok: false, erro: 'Não autorizado.' });
+      return jsonOut_({ ok: false, erro: 'Não autorizado.', versao: VERSAO_CODIGO });
     }
 
     var admin = pedido.adminPassword && pedido.adminPassword === getAdminPassword();
@@ -432,7 +440,9 @@ function montarLinhaLog_(ent, uuid, linhaDados, accao, estado) {
 
 function doGet(e) {
   var p = (e && e.parameter) || {};
-  if (!getToken() || p.token !== getToken()) return jsonOut_({ ok: false, erro: 'Não autorizado.' });
+  if (!getToken() || p.token !== getToken()) {
+    return jsonOut_({ ok: false, erro: 'Não autorizado.', versao: VERSAO_CODIGO });
+  }
 
   try {
     var accao = p.action || 'estado';
@@ -559,6 +569,7 @@ function registo_(log, p) {
  */
 function diagnostico() {
   var l = [];
+  l.push('versao do Codigo   : ' + VERSAO_CODIGO);
   l.push('doGet definido     : ' + (typeof doGet === 'function'));
   l.push('doPost definido    : ' + (typeof doPost === 'function'));
   l.push('colunas do Log     : ' + CABECALHO_LOG.length + ' (tem de ser 35)');

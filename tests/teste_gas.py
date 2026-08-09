@@ -122,8 +122,13 @@ def main():
         r = pag.evaluate("() => JSON.parse(doPost({postData:{contents: JSON.stringify("
                          "{token:'errado', entries:[]})}}).getContent())")
         ok(r["ok"] is False and "autoriz" in r["erro"].lower(), "POST com token errado e recusado", r)
+        ok(r.get("versao") == pag.evaluate("VERSAO_CODIGO"),
+           f"POST recusado diz a versao ({r.get('versao')})")
         r = get(pag, {"token": "errado", "action": "estado"})
         ok(r["ok"] is False, "GET com token errado e recusado", r)
+        # sem isto nao se distingue "colei mal" de "implantei a versao antiga"
+        ok(r.get("versao") == pag.evaluate("VERSAO_CODIGO"),
+           f"GET recusado diz a versao ({r.get('versao')})")
 
         print("\n[4] primeiro registo escreve em Data e no Log")
         r = post(pag, [envio()])
