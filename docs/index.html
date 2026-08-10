@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-PT">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -17,112 +17,112 @@
 <div id="barraEstado">
   <span id="pontoRede"></span>
   <span id="estadoTexto">Ligado</span>
-  <span id="crachaAdmin" hidden>ADMIN</span>
+  <span id="crachaAdmin" data-t="geral.admin" hidden></span>
   <span id="contadorFila" hidden>0</span>
 </div>
 
 <main>
 
+<!-- escolha do idioma — só nos ecrãs de entrada -->
+<div class="idiomas" id="idiomas" hidden></div>
+
 <!-- ------------------------------------------------------ 0. activação ---- -->
 <section class="ecra" id="ecraActivacao" hidden>
-  <h1>Activar aparelho</h1>
-  <p class="sub">Só é preciso uma vez em cada telemóvel.</p>
+  <h1 data-t="activacao.titulo"></h1>
+  <p class="sub" data-t="activacao.texto"></p>
 
-  <label class="campo" for="inpCodigo">Código de activação</label>
+  <label class="campo" for="inpCodigo" data-t="activacao.campo"></label>
   <input type="text" id="inpCodigo" autocomplete="off" autocapitalize="off" spellcheck="false">
 
   <div class="aviso" id="avisoActivacao" hidden></div>
-  <button class="btn" id="btnActivar">Activar</button>
+  <button class="btn" id="btnActivar" data-t="activacao.botao"></button>
 </section>
 
 <!-- --------------------------------------------------------- 1. entrada ---- -->
 <section class="ecra" id="ecraEntrada" hidden>
-  <h1>India Rec</h1>
-  <p class="sub">NBF (Tanheia) 26 — registo de medições</p>
+  <h1 data-t="app.titulo"></h1>
+  <p class="sub" data-t="app.sub"></p>
 
-  <label class="campo" for="inpNome">O seu nome</label>
+  <label class="campo" for="inpNome" data-t="entrada.nome"></label>
   <input type="text" id="inpNome" autocomplete="name" autocapitalize="words">
 
-  <button class="btn" id="btnEntrar">Continuar</button>
+  <button class="btn" id="btnEntrar" data-t="entrada.continuar"></button>
 
   <details id="blocoAdmin">
-    <summary>Modo administrador</summary>
-    <label class="campo" for="inpAdmin">Palavra-passe</label>
+    <summary data-t="entrada.admin"></summary>
+    <label class="campo" for="inpAdmin" data-t="entrada.senha"></label>
     <input type="password" id="inpAdmin" autocomplete="off">
     <div class="aviso" id="avisoAdmin" hidden></div>
-    <button class="btn secundario" id="btnAdmin">Entrar como administrador</button>
+    <button class="btn secundario" id="btnAdmin" data-t="entrada.entrarAdmin"></button>
   </details>
 
-  <button class="ligacao" id="ligSairAdmin" hidden>Sair do modo administrador</button>
-  <button class="ligacao" id="ligDesactivar">Desactivar este aparelho</button>
+  <button class="ligacao" id="ligSairAdmin" data-t="entrada.sairAdmin" hidden></button>
+  <button class="ligacao" id="ligDesactivar" data-t="entrada.desactivar"></button>
 </section>
 
 <!-- ---------------------------------------------------- 2. levantamento ---- -->
 <section class="ecra" id="ecraLevantamento" hidden>
-  <h1>Que levantamento vai fazer?</h1>
+  <h1 data-t="lev.titulo"></h1>
   <p class="sub" id="ola"></p>
 
   <button class="cartao" data-modo="crescimento">
-    <b>Crescimento</b>
-    <span>Altura, copa, ramos e cachos de frutos e flores — colunas G a M.
-    Repete-se de seis em seis meses.</span>
+    <b data-t="lev.crescimento"></b>
+    <span data-t="lev.crescimento.desc"></span>
     <span class="minibarra" data-barra="crescimento"><i></i></span>
     <span class="minitexto" data-texto="crescimento"></span>
   </button>
 
   <button class="cartao" data-modo="descritores">
-    <b>Descritores morfológicos</b>
-    <span>Hábito, folha, cores, fruto e semente — colunas N a Z.</span>
+    <b data-t="lev.descritores"></b>
+    <span data-t="lev.descritores.desc"></span>
     <span class="minibarra" data-barra="descritores"><i></i></span>
     <span class="minitexto" data-texto="descritores"></span>
   </button>
 
-  <button class="ligacao" id="ligProgresso">Ver progresso por fileira</button>
-  <button class="ligacao" id="ligHistorico">Registos e correcções</button>
-  <button class="ligacao" id="ligTrocarNome">Trocar de utilizador</button>
+  <button class="ligacao" id="ligProgresso" data-t="lev.progresso"></button>
+  <button class="ligacao" id="ligHistorico" data-t="lev.registos"></button>
+  <button class="ligacao" id="ligTrocarNome" data-t="lev.trocarNome"></button>
 </section>
 
 <!-- ----------------------------------------------------------- 3. ronda ---- -->
 <section class="ecra" id="ecraRonda" hidden>
-  <h1>Ronda do levantamento</h1>
-  <p class="sub">Identifica esta campanha de medição. Fica gravado no aparelho —
-  só precisa de mudar quando começar uma ronda nova.</p>
+  <h1 data-t="ronda.titulo"></h1>
+  <p class="sub" data-t="ronda.texto"></p>
 
-  <label class="campo" for="inpRonda">Nome da ronda</label>
-  <input type="text" id="inpRonda" autocomplete="off" placeholder="ex.: 1 ano após a plantação (20261211)">
+  <label class="campo" for="inpRonda" data-t="ronda.campo"></label>
+  <input type="text" id="inpRonda" autocomplete="off" data-tph="ronda.exemplo">
   <div id="rondasConhecidas"></div>
 
-  <div class="aviso">Se esta ronda ainda não existir na folha de cálculo, são criadas
-  sete colunas novas no fim da folha. Os dados antigos não são tocados.</div>
+  <div class="aviso" data-t="ronda.aviso"></div>
 
-  <button class="btn" id="btnRonda">Continuar</button>
-  <button class="ligacao" data-voltar="ecraLevantamento">Voltar</button>
+  <button class="btn" id="btnRonda" data-t="entrada.continuar"></button>
+  <button class="ligacao" data-voltar="ecraLevantamento" data-t="geral.voltar"></button>
 </section>
 
 <!-- ---------------------------------------------------------- 4. planta ---- -->
 <section class="ecra" id="ecraPlanta" hidden>
-  <h1>Escolher a planta</h1>
+  <h1 data-t="planta.titulo"></h1>
   <p class="sub" id="subPlanta"></p>
 
-  <h2>Fileira</h2>
+  <h2 data-t="planta.fileira"></h2>
   <div class="grelhaFileiras" id="grelhaFileiras"></div>
 
-  <h2>Número na fileira</h2>
+  <h2 data-t="planta.numero"></h2>
   <p class="sub" id="dicaSentido"></p>
   <div id="visorNumero" class="vazio">—</div>
   <div id="resolvidoPlanta" hidden></div>
   <div class="teclado" id="teclado">
-    <button data-t="1">1</button><button data-t="2">2</button><button data-t="3">3</button>
-    <button data-t="4">4</button><button data-t="5">5</button><button data-t="6">6</button>
-    <button data-t="7">7</button><button data-t="8">8</button><button data-t="9">9</button>
-    <button class="aux" data-t="limpar">Limpar</button>
-    <button data-t="0">0</button>
-    <button class="aux" data-t="apagar">←</button>
+    <button data-tecla="1">1</button><button data-tecla="2">2</button><button data-tecla="3">3</button>
+    <button data-tecla="4">4</button><button data-tecla="5">5</button><button data-tecla="6">6</button>
+    <button data-tecla="7">7</button><button data-tecla="8">8</button><button data-tecla="9">9</button>
+    <button class="aux" data-tecla="limpar" data-t="planta.limpar"></button>
+    <button data-tecla="0">0</button>
+    <button class="aux" data-tecla="apagar">←</button>
   </div>
 
-  <button class="btn" id="btnPlanta" disabled>Continuar</button>
-  <button class="ligacao" id="ligProximaPorFazer">Saltar para a próxima por fazer</button>
-  <button class="ligacao" data-voltar="ecraLevantamento">Voltar</button>
+  <button class="btn" id="btnPlanta" data-t="entrada.continuar" disabled></button>
+  <button class="ligacao" id="ligProximaPorFazer" data-t="planta.proxima"></button>
+  <button class="ligacao" data-voltar="ecraLevantamento" data-t="geral.voltar"></button>
 </section>
 
 <!-- ------------------------------------------------------ 5. formulário ---- -->
@@ -132,38 +132,38 @@
   <div id="avisoEdicao" class="aviso" hidden></div>
   <div id="camposForm"></div>
 
-  <button class="ligacao" id="ligTrocarPlanta">Trocar de planta</button>
-  <button class="btn perigo" id="btnEliminar" hidden>Eliminar este registo</button>
+  <button class="ligacao" id="ligTrocarPlanta" data-t="form.trocarPlanta"></button>
+  <button class="btn perigo" id="btnEliminar" data-t="form.eliminar" hidden></button>
 
   <div class="barraFundo">
-    <button class="btn" id="btnEnviar">Guardar e enviar</button>
+    <button class="btn" id="btnEnviar"></button>
   </div>
 </section>
 
 <!-- -------------------------------------------------------- 6. progresso ---- -->
 <section class="ecra" id="ecraProgresso" hidden>
-  <h1>Progresso</h1>
+  <h1 data-t="prog.titulo"></h1>
   <p class="sub" id="subProgresso"></p>
   <div id="totalProgresso"></div>
   <div id="listaFileiras"></div>
-  <button class="btn secundario" id="btnActualizarProgresso">Actualizar</button>
-  <button class="ligacao" data-voltar="ecraLevantamento">Voltar</button>
+  <button class="btn secundario" id="btnActualizarProgresso" data-t="prog.actualizar"></button>
+  <button class="ligacao" data-voltar="ecraLevantamento" data-t="geral.voltar"></button>
 </section>
 
 <!-- -------------------------------------------------------- 7. histórico ---- -->
 <section class="ecra" id="ecraHistorico" hidden>
-  <h1>Registos</h1>
+  <h1 data-t="hist.titulo"></h1>
   <p class="sub" id="subHistorico"></p>
 
   <div class="abas" id="abasHistorico">
-    <button class="aba activo" data-aba="aparelho">Neste aparelho</button>
-    <button class="aba" data-aba="todos">Todos</button>
+    <button class="aba activo" data-aba="aparelho" data-t="hist.aparelho"></button>
+    <button class="aba" data-aba="todos" data-t="hist.todos"></button>
   </div>
 
   <ul class="listaEnvios" id="listaHistorico"></ul>
 
-  <button class="btn secundario" id="btnForcarEnvio">Tentar enviar agora</button>
-  <button class="ligacao" data-voltar="ecraLevantamento">Voltar</button>
+  <button class="btn secundario" id="btnForcarEnvio" data-t="hist.forcar"></button>
+  <button class="ligacao" data-voltar="ecraLevantamento" data-t="geral.voltar"></button>
 </section>
 
 </main>
@@ -172,30 +172,30 @@
 
 <!-- ------------------------------------------------ diálogo: campos vazios -- -->
 <dialog id="dlgIncompleto">
-  <h3>Faltam valores</h3>
-  <p>Estes campos ficaram por preencher:</p>
+  <h3 data-t="dlg.faltamTitulo"></h3>
+  <p data-t="dlg.faltamTexto"></p>
   <ul id="listaVazios"></ul>
-  <p>Pode enviar assim mesmo — as células vazias não são escritas na folha.</p>
+  <p data-t="dlg.faltamNota"></p>
   <div class="dialogoBotoes">
-    <button class="btn secundario" id="btnVoltarPreencher">Voltar</button>
-    <button class="btn" id="btnEnviarAssim">Enviar assim</button>
+    <button class="btn secundario" id="btnVoltarPreencher" data-t="geral.voltar"></button>
+    <button class="btn" id="btnEnviarAssim" data-t="dlg.enviarAssim"></button>
   </div>
 </dialog>
 
 <!-- ------------------------------------------- diálogo: eliminar registo -- -->
 <dialog id="dlgEliminar">
-  <h3>Eliminar este registo?</h3>
+  <h3 data-t="dlg.eliminarTitulo"></h3>
   <p id="textoEliminar"></p>
   <ul id="listaEliminar"></ul>
-  <p>Os valores são apagados da folha de cálculo e a planta volta a contar como
-  por registar. Fica sempre o rasto na folha <b>Log</b>.</p>
+  <p data-t="dlg.eliminarNota"></p>
   <div class="dialogoBotoes">
-    <button class="btn secundario" id="btnNaoEliminar">Voltar</button>
-    <button class="btn perigo" id="btnConfirmarEliminar">Eliminar</button>
+    <button class="btn secundario" id="btnNaoEliminar" data-t="geral.voltar"></button>
+    <button class="btn perigo" id="btnConfirmarEliminar" data-t="dlg.eliminar"></button>
   </div>
 </dialog>
 
 <script src="config.js"></script>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

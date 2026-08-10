@@ -90,6 +90,39 @@ main { padding: 16px 14px 96px; max-width: 640px; margin: 0 auto; }
 
 .ecra[hidden] { display: none; }
 
+/* ------------------------------------------------------- escolha do idioma */
+
+/* Só aparece nos ecrãs de entrada: no meio da medição seria mais um alvo por
+   onde tocar sem querer. */
+.idiomas {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.idiomas button {
+  min-height: 38px;
+  padding: 7px 13px;
+  background: var(--painel);
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  color: var(--txt2);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.idiomas button.activo {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: #10210a;
+}
+
+/* O espaçamento entre letras é feito para o alfabeto latino: em japonês
+   transforma "枝数" em "枝 数". */
+html[lang="ja"] .grupo > h3,
+html[lang="ja"] #crachaAdmin { letter-spacing: 0; }
+html[lang="ja"] .grupo > h3 { text-transform: none; }
+
 /* entrada suave ao trocar de ecrã — curta, para não atrasar o trabalho */
 .ecra { animation: entrar .16s ease-out; }
 @keyframes entrar {

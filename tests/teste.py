@@ -43,9 +43,9 @@ def entrar(pag, nome):
 
 def escolher_planta(pag, fileira, numero):
     pag.locator(f'#grelhaFileiras button:has-text("{fileira}")').first.click()
-    pag.locator('#teclado button[data-t="limpar"]').click()
+    pag.locator('#teclado button[data-tecla="limpar"]').click()
     for d in str(numero):
-        pag.locator(f'#teclado button[data-t="{d}"]').click()
+        pag.locator(f'#teclado button[data-tecla="{d}"]').click()
 
 
 def guardar(pag, esperar_dialogo=True):

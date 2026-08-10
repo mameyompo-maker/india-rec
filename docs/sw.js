@@ -3,13 +3,14 @@
  * IMPORTANTE: subir CACHE sempre que se altera qualquer ficheiro em docs/,
  * caso contrário os telemóveis continuam a usar a versão antiga.
  */
-var CACHE = 'indiarec-v11';
+var CACHE = 'indiarec-v12';
 
 var FICHEIROS = [
   './',
   './index.html',
   './styles.css',
   './config.js',
+  './i18n.js',
   './app.js',
   './plants.json',
   './manifest.webmanifest',

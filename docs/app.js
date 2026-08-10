@@ -17,104 +17,115 @@ var VALIDADE_ADMIN = 12 * 3600 * 1000;   // o modo administrador expira ao fim d
 
 // ------------------------------------------------------------------- campos
 
+/* As etiquetas vivem no i18n.js. Aqui ficam só as chaves: 'verdeClaro' é o que
+ * o aparelho guarda e envia, e é o Codigo.gs que o traduz para o inglês da
+ * folha de cálculo ('Light green'). Mudar de idioma não muda nada disso. */
 var CORES = [
-  { chave: 'verdeClaro',  rotulo: 'Verde claro' },
-  { chave: 'verdeMedio',  rotulo: 'Verde médio' },
-  { chave: 'verdeEscuro', rotulo: 'Verde escuro' },
-  { chave: 'vermelho',    rotulo: 'Vermelho' }
+  { chave: 'verdeClaro' },
+  { chave: 'verdeMedio' },
+  { chave: 'verdeEscuro' },
+  { chave: 'vermelho' }
 ];
 
 var HABITOS = [
-  { chave: 'horizontal', rotulo: 'Horizontal' },
-  { chave: 'vertical',   rotulo: 'Vertical' }
+  { chave: 'horizontal' },
+  { chave: 'vertical' }
 ];
 
 var LEVANTAMENTOS = {
   crescimento: {
-    titulo: 'Crescimento',
     colunas: 'G–M',
     grupos: [
       {
-        nome: 'Porte da planta',
+        chave: 'porte',
         campos: [
-          { chave: 'alturaPlanta', rotulo: 'Altura da planta', tipo: 'num', unidade: 'm' },
-          { chave: 'cnp1',         rotulo: 'Cnp-1',            tipo: 'num', unidade: 'm' },
-          { chave: 'cnp2',         rotulo: 'Cnp-2',            tipo: 'num', unidade: 'm' },
-          { chave: 'ramos',        rotulo: 'Ramos',            tipo: 'int', unidade: 'n.º' }
+          { chave: 'alturaPlanta', tipo: 'num', unidade: 'unid.m' },
+          { chave: 'cnp1',         tipo: 'num', unidade: 'unid.m' },
+          { chave: 'cnp2',         tipo: 'num', unidade: 'unid.m' },
+          { chave: 'ramos',        tipo: 'int', unidade: 'unid.ramos' }
         ]
       },
       {
-        nome: 'Cachos',
+        chave: 'cachos',
         campos: [
-          { chave: 'cachosFrutos', rotulo: 'Cachos de frutos',         tipo: 'int', unidade: 'n.º' },
-          { chave: 'cachosFlores', rotulo: 'Cachos de flores',         tipo: 'int', unidade: 'n.º' },
-          { chave: 'cachosBotoes', rotulo: 'Cachos de botões florais', tipo: 'int', unidade: 'n.º' }
+          { chave: 'cachosFrutos', tipo: 'int', unidade: 'unid.cachos' },
+          { chave: 'cachosFlores', tipo: 'int', unidade: 'unid.cachos' },
+          { chave: 'cachosBotoes', tipo: 'int', unidade: 'unid.cachos' }
         ]
       }
     ]
   },
   descritores: {
-    titulo: 'Descritores morfológicos',
     colunas: 'N–Z',
     grupos: [
       {
-        nome: 'Hábito',
+        chave: 'habito',
         campos: [
-          { chave: 'habitoCrescimento', rotulo: 'Hábito de crescimento', tipo: 'habito' }
+          { chave: 'habitoCrescimento', tipo: 'habito' }
         ]
       },
       {
-        nome: 'Folha',
+        chave: 'folha',
         campos: [
-          { chave: 'limboFoliar',      rotulo: 'Limbo foliar',     tipo: 'num', unidade: 'cm' },
-          { chave: 'peciolo',          rotulo: 'Pecíolo',          tipo: 'num', unidade: 'cm' },
-          { chave: 'folhaComprimento', rotulo: 'Comprimento',      tipo: 'num', unidade: 'cm' },
-          { chave: 'folhaLargura',     rotulo: 'Largura',          tipo: 'num', unidade: 'cm' },
-          { chave: 'lobulosFolha',     rotulo: 'Lóbulos da folha', tipo: 'int', unidade: 'n.º' }
+          { chave: 'limboFoliar',      tipo: 'num', unidade: 'unid.cm' },
+          { chave: 'peciolo',          tipo: 'num', unidade: 'unid.cm' },
+          { chave: 'folhaComprimento', tipo: 'num', unidade: 'unid.cm' },
+          { chave: 'folhaLargura',     tipo: 'num', unidade: 'unid.cm' },
+          { chave: 'lobulosFolha',     tipo: 'int', unidade: 'unid.lobulos' }
         ]
       },
       {
-        nome: 'Cores',
+        chave: 'cores',
         campos: [
-          { chave: 'corInflorMasc', rotulo: 'Cor da inflorescência — masculina', tipo: 'cor' },
-          { chave: 'corInflorFem',  rotulo: 'Cor da inflorescência — feminina',  tipo: 'cor' },
-          { chave: 'corFruto',      rotulo: 'Cor do fruto',                      tipo: 'cor' }
+          { chave: 'corInflorMasc', tipo: 'cor' },
+          { chave: 'corInflorFem',  tipo: 'cor' },
+          { chave: 'corFruto',      tipo: 'cor' }
         ]
       },
       {
-        nome: 'Fruto',
+        chave: 'fruto',
         campos: [
-          { chave: 'frutoComprimento', rotulo: 'Comprimento', tipo: 'num', unidade: 'cm' },
-          { chave: 'frutoLargura',     rotulo: 'Largura',     tipo: 'num', unidade: 'cm' }
+          { chave: 'frutoComprimento', tipo: 'num', unidade: 'unid.cm' },
+          { chave: 'frutoLargura',     tipo: 'num', unidade: 'unid.cm' }
         ]
       },
       {
-        nome: 'Semente',
+        chave: 'semente',
         campos: [
-          { chave: 'sementeComprimento', rotulo: 'Comprimento', tipo: 'num', unidade: 'cm' },
-          { chave: 'sementeLargura',     rotulo: 'Largura',     tipo: 'num', unidade: 'cm' }
+          { chave: 'sementeComprimento', tipo: 'num', unidade: 'unid.cm' },
+          { chave: 'sementeLargura',     tipo: 'num', unidade: 'unid.cm' }
         ]
       }
     ]
   }
 };
 
+function tituloLev(modo) { return t('lev.' + modo); }
+function rotuloCampo(c) { return t('campo.' + c.chave); }
+function rotuloOpcao(tipo, chave) { return t((tipo === 'cor' ? 'cor.' : 'habito.') + chave); }
+
 /* A folha de cálculo é um conjunto de dados em inglês, mas nada disso pode
  * aparecer no ecrã de quem está no campo. Estas duas funções são só etiquetas:
  * o valor cru continua a ser o que viaja para o servidor e para a folha. */
-function nomeLotePt(bruto) {
-  return String(bruto || '')
-    .replace(/^India\s*#\s*bag\s*/i, 'Índia — saco ')
-    .replace(/^India\s*#\s*/i, 'Índia — ');
+function nomeLote(bruto) {
+  var s = String(bruto || '');
+  var m = /^India\s*#\s*bag\s*(.*)$/i.exec(s);
+  if (m) return t('lote.saco', { n: m[1] });
+  m = /^India\s*#\s*(.*)$/i.exec(s);
+  if (m) return t('lote.outro', { n: m[1] });
+  return s;
 }
 
-function nomeRondaPt(bruto) {
+function nomeRonda(bruto) {
   var s = String(bruto || '').trim();
   var m = /^(\d+)\s*(month|months|year|years)\s+after\s+planting\s*\((\d{4})(\d{2})(\d{2})\)$/i.exec(s);
   if (!m) return s;                       // ronda escrita à mão: fica como está
   var n = parseInt(m[1], 10);
-  var u = /year/i.test(m[2]) ? (n === 1 ? 'ano' : 'anos') : (n === 1 ? 'mês' : 'meses');
-  return n + ' ' + u + ' após a plantação (' + m[5] + '/' + m[4] + '/' + m[3] + ')';
+  var u = /year/i.test(m[2]) ? (n === 1 ? t('ronda.ano') : t('ronda.anos'))
+                             : (n === 1 ? t('ronda.mes') : t('ronda.meses'));
+  return t('ronda.formato', {
+    n: n, unidade: u, data: t('ronda.data', { a: m[3], m: m[4], d: m[5] })
+  });
 }
 
 /* A plantação é em serpentina: numa fileira ímpar o n.º 1 está à esquerda do
@@ -130,8 +141,8 @@ function sentidoDaFileira(row) {
 
 function textoSentido(row) {
   var s = sentidoDaFileira(row);
-  if (s === 'esq') return 'n.º 1 à esquerda →';
-  if (s === 'dir') return '← n.º 1 à direita';
+  if (s === 'esq') return t('planta.esq');
+  if (s === 'dir') return t('planta.dir');
   return '';
 }
 
@@ -146,6 +157,8 @@ function camposDe(modo) {
 // ------------------------------------------------------------------- estado
 
 var S = {
+  idioma: 'pt',
+  ecra: '',
   plantas: null,
   total: 0,            // vem do plants.json; 0 até as plantas carregarem
   fileiras: [],
@@ -166,6 +179,84 @@ var S = {
 };
 
 var $ = function (id) { return document.getElementById(id); };
+
+// ------------------------------------------------------------------ idiomas
+
+/** Texto na língua escolhida. {chave} nas frases é substituído por subs.chave. */
+function t(chave, subs) {
+  var tabela = TEXTOS[S.idioma] || TEXTOS.pt;
+  var s = tabela[chave];
+  if (s === undefined) s = (TEXTOS.pt[chave] !== undefined) ? TEXTOS.pt[chave] : chave;
+  if (!subs) return s;
+  return s.replace(/\{(\w+)\}/g, function (todo, k) {
+    return (subs[k] === undefined) ? todo : String(subs[k]);
+  });
+}
+
+function definirIdioma(cod) {
+  if (!TEXTOS[cod]) cod = 'pt';
+  S.idioma = cod;
+  Def.set('idioma', cod);
+  var info = IDIOMAS.filter(function (i) { return i.cod === cod; })[0];
+  // dizer a verdade ao navegador evita que ele ofereça traduzir por cima
+  document.documentElement.lang = (info && info.html) || cod;
+  aplicarIdioma();
+}
+
+/** Reescreve tudo o que está marcado no HTML e volta a desenhar o que é dinâmico. */
+function aplicarIdioma() {
+  var fixos = document.querySelectorAll('[data-t]');
+  for (var i = 0; i < fixos.length; i++) {
+    fixos[i].innerHTML = t(fixos[i].getAttribute('data-t'));
+  }
+  var dicas = document.querySelectorAll('[data-tph]');
+  for (var j = 0; j < dicas.length; j++) {
+    dicas[j].setAttribute('placeholder', t(dicas[j].getAttribute('data-tph')));
+  }
+  pintarBotoesIdioma();
+  redesenharEcra();
+}
+
+function pintarBotoesIdioma() {
+  var caixa = $('idiomas');
+  if (!caixa) return;
+  caixa.innerHTML = '';
+  IDIOMAS.forEach(function (i) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = i.rotulo;
+    b.className = (i.cod === S.idioma) ? 'activo' : '';
+    b.onclick = function () { definirIdioma(i.cod); };
+    caixa.appendChild(b);
+  });
+}
+
+/** Volta a montar o ecrã actual, para o texto dinâmico mudar de língua também. */
+function redesenharEcra() {
+  actualizarEstado();
+  pintarCartoes();
+  if (S.ecra === 'ecraLevantamento') $('ola').textContent = t('lev.ola', { nome: Def.get('nome', '') });
+  if (S.ecra === 'ecraRonda') {
+    var campo = $('inpRonda');
+    var bruto = campo.dataset.bruto || '';
+    if (bruto) campo.value = nomeRonda(bruto);
+    desenharRondasConhecidas();
+  }
+  if (S.ecra === 'ecraPlanta') {
+    $('subPlanta').textContent = t('planta.sub', {
+      titulo: tituloLev(S.modo), colunas: LEVANTAMENTOS[S.modo].colunas
+    });
+    var dica = $('dicaSentido');
+    if (dica) {
+      dica.textContent = S.fileira ? t('planta.dica', { row: S.fileira, sentido: textoSentido(S.fileira) }) : '';
+    }
+    desenharFileiras();
+    resolverPlanta();
+  }
+  if (S.ecra === 'ecraFormulario' && S.planta) desenharFormulario();
+  if (S.ecra === 'ecraProgresso') desenharEcraProgresso();
+  if (S.ecra === 'ecraHistorico') desenharHistorico();
+}
 
 // ----------------------------------------------------------- armazenamento
 
@@ -204,11 +295,11 @@ var DB = (function () {
   function comStore(modo, fn) {
     return abrir().then(function (d) {
       return new Promise(function (ok, mau) {
-        var t = d.transaction('envios', modo);
-        var r = fn(t.objectStore('envios'));
-        t.oncomplete = function () { ok(r.result); };
-        t.onerror = function () { mau(t.error); };
-        t.onabort = function () { mau(t.error); };
+        var tx = d.transaction('envios', modo);
+        var r = fn(tx.objectStore('envios'));
+        tx.oncomplete = function () { ok(r.result); };
+        tx.onerror = function () { mau(tx.error); };
+        tx.onabort = function () { mau(tx.error); };
       });
     });
   }
@@ -289,8 +380,16 @@ function brinde(msg, mau) {
 }
 
 function mostrar(id) {
+  S.ecra = id;
   var ecras = document.querySelectorAll('.ecra');
   for (var i = 0; i < ecras.length; i++) ecras[i].hidden = (ecras[i].id !== id);
+
+  /* A escolha do idioma só aparece nos ecrãs de entrada: no meio do trabalho de
+   * campo seria mais um alvo por onde tocar sem querer. */
+  var caixa = $('idiomas');
+  if (caixa) {
+    caixa.hidden = ['ecraActivacao', 'ecraEntrada', 'ecraLevantamento'].indexOf(id) < 0;
+  }
   window.scrollTo(0, 0);
 }
 
@@ -299,12 +398,46 @@ function esc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/** Aceita vírgula decimal (convenção portuguesa). */
+/**
+ * Lê o número escrito pela pessoa, seja qual for o idioma do ecrã.
+ *
+ * Aceita sempre os dois sinais decimais: em português escreve-se 1,5 e em
+ * inglês 1.5, e no campo há quem tenha o teclado numa língua e a aplicação
+ * noutra. Regra: o último ponto ou vírgula é o sinal decimal; se o mesmo sinal
+ * aparecer mais do que uma vez, é separador de milhares (1.234.567).
+ * O NFKC trata dos algarismos e sinais de largura total dos teclados japoneses.
+ *
+ * Devolve null se estiver vazio e NaN se não for um número.
+ */
 function paraNumero(txt) {
-  var s = String(txt || '').trim().replace(',', '.');
+  var s = String(txt === null || txt === undefined ? '' : txt);
+  if (s.normalize) s = s.normalize('NFKC');
+  s = s.replace(/[\s ']/g, '');
   if (s === '') return null;
+
+  var p = s.lastIndexOf('.');
+  var v = s.lastIndexOf(',');
+  var corte = p > v ? p : v;
+
+  if (corte >= 0) {
+    var sinal = s.charAt(corte);
+    if (s.indexOf(sinal) !== corte) {
+      s = s.split('.').join('').split(',').join('');          // só milhares
+    } else {
+      s = s.slice(0, corte).split('.').join('').split(',').join('') + '.' + s.slice(corte + 1);
+    }
+  }
+
+  if (!/^[+-]?\d*\.?\d*$/.test(s) || !/\d/.test(s)) return NaN;
   var n = Number(s);
   return isFinite(n) ? n : NaN;
+}
+
+/** O mesmo número escrito com o sinal decimal do idioma escolhido. */
+function mostrarNumero(v) {
+  if (v === null || v === undefined || v === '') return '';
+  var s = String(v);
+  return t('num.separador') === ',' ? s.replace('.', ',') : s.replace(',', '.');
 }
 
 function configurado() {
@@ -329,16 +462,16 @@ function actualizarEstado() {
   return DB.pendentes().then(function (p) {
     var c = $('contadorFila');
     c.hidden = p.length === 0;
-    c.textContent = p.length + ' por enviar';
+    c.textContent = t('rede.contador', { n: p.length });
 
     if (!navigator.onLine) {
-      actualizarBarra('offline', p.length ? 'Sem rede — guardado no telemóvel' : 'Sem rede');
+      actualizarBarra('offline', p.length ? t('rede.semRedeFila') : t('rede.semRede'));
     } else if (S.aEnviar) {
-      actualizarBarra('enviando', 'A enviar…');
+      actualizarBarra('enviando', t('rede.aEnviar'));
     } else if (p.length) {
-      actualizarBarra('enviando', 'Por enviar');
+      actualizarBarra('enviando', t('rede.porEnviar'));
     } else {
-      actualizarBarra(null, 'Ligado — tudo enviado');
+      actualizarBarra(null, t('rede.ligado'));
     }
     return p;
   });
@@ -382,7 +515,7 @@ function enviarFila() {
       retidos = antes - fila.length;
     }
     if (retidos) {
-      brinde(retidos + ' correcção(ões) à espera do modo administrador', true);
+      brinde(t('rede.retidos', { n: retidos }), true);
     }
     if (!fila.length) return;
 
@@ -451,8 +584,8 @@ function enviarLote(lote, token, adminPw) {
     })).then(function () {
       var bons = lote.filter(function (e) { return e.estado === 'enviado'; }).length;
       var maus = lote.filter(function (e) { return e.estado === 'erro'; }).length;
-      if (bons) brinde(bons + (bons === 1 ? ' registo enviado' : ' registos enviados'));
-      if (maus) brinde(maus + ' registo(s) recusado(s) — ver em Registos', true);
+      if (bons) brinde(bons === 1 ? t('rede.enviado') : t('rede.enviados', { n: bons }));
+      if (maus) brinde(t('rede.recusados', { n: maus }), true);
       if (bons) carregarProgresso();
     });
   });
@@ -542,24 +675,23 @@ function pintarCartoes() {
     if (barra) barra.style.width = pc + '%';
     if (texto) {
       texto.textContent = g
-        ? n + ' de ' + S.total + ' plantas' + (pc >= 1 ? ' (' + pc + '%)' : '')
-        : 'Progresso ainda não carregado';
+        ? t(pc >= 1 ? 'lev.contagemPc' : 'lev.contagem', { n: n, total: S.total, pc: pc })
+        : t('lev.semProgresso');
     }
   });
 }
 
 function desenharEcraProgresso() {
-  var lev = LEVANTAMENTOS[S.modo];
   var n = totalFeitas();
   var pc = Math.round(n / S.total * 100);
 
-  $('subProgresso').textContent = lev.titulo +
-    (S.modo === 'crescimento' ? ' · ' + nomeRondaPt(Def.get('ronda', '')) : '') +
-    (S.feitasHora ? ' · actualizado ' + S.feitasHora : ' · sem actualização do servidor');
+  $('subProgresso').textContent = tituloLev(S.modo) +
+    (S.modo === 'crescimento' ? ' · ' + nomeRonda(Def.get('ronda', '')) : '') +
+    (S.feitasHora ? t('prog.actualizado', { hora: S.feitasHora }) : t('prog.semActualizacao'));
 
   $('totalProgresso').innerHTML =
     '<div class="resumo"><div class="grande">' + n + ' / ' + S.total + '</div>' +
-    '<div class="peq">' + (S.total - n) + ' plantas por registar</div>' +
+    '<div class="peq">' + esc(t('prog.porRegistar', { n: S.total - n })) + '</div>' +
     '<span class="minibarra"><i style="width:' + pc + '%"></i></span></div>';
 
   var alvo = $('listaFileiras');
@@ -634,7 +766,7 @@ function desenharFileiras() {
       desenharFileiras();
       resolverPlanta();
       var dica = $('dicaSentido');
-      if (dica) dica.textContent = f.row + ': ' + textoSentido(f.row);
+      if (dica) dica.textContent = t('planta.dica', { row: f.row, sentido: textoSentido(f.row) });
     };
     g.appendChild(b);
   });
@@ -666,7 +798,7 @@ function resolverPlanta() {
   if (!p) {
     var max = (S.fileiras.filter(function (f) { return f.row === S.fileira; })[0] || {}).count;
     cx.className = 'erro';
-    cx.textContent = 'A fileira ' + S.fileira + ' só tem ' + max + ' plantas.';
+    cx.textContent = t('planta.soTem', { row: S.fileira, max: max });
     $('btnPlanta').disabled = true;
     return;
   }
@@ -676,17 +808,20 @@ function resolverPlanta() {
   var extra = '';
   if (quem) {
     extra = podeEditar(quem)
-      ? '<br><span style="color:var(--acento)">✓ já registada' +
-        (quem === Def.get('nome', '') ? ' por si' : ' por ' + esc(quem)) + ' — pode corrigir</span>'
-      : '<br><span style="color:var(--aviso)">🔒 registada por ' + esc(quem) +
-        ' — só essa pessoa ou um administrador pode corrigir</span>';
+      ? '<br><span style="color:var(--acento)">' +
+        (quem === Def.get('nome', '')
+          ? esc(t('planta.jaFeitaPorSi'))
+          : esc(t('planta.jaFeitaPor', { quem: quem }))) + '</span>'
+      : '<br><span style="color:var(--aviso)">' +
+        esc(t('planta.trancada', { quem: quem })) + '</span>';
   }
 
   cx.className = '';
   cx.innerHTML = '<b>' + esc(p.pid) + '</b>' + extra + '<br>' +
-    'Fileira ' + p.row + ', n.º ' + p.noFileira + ' &nbsp;·&nbsp; ' + esc(nomeLotePt(p.source)) +
-    ' (n.º ' + p.noFolha + ' no lote)' +
-    '<br><span class="sentido">' + textoSentido(p.row) + '</span>';
+    t('planta.detalhe', {
+      row: p.row, no: p.noFileira, lote: esc(nomeLote(p.source)), noLote: p.noFolha
+    }) +
+    '<br><span class="sentido">' + esc(textoSentido(p.row)) + '</span>';
   $('btnPlanta').disabled = !!(quem && !podeEditar(quem));
 }
 
@@ -694,12 +829,12 @@ function resolverPlanta() {
 function proximaPorFazer() {
   var inicio = S.planta ? S.planta.seq + 1 : 1;
   for (var s = inicio; s <= S.total; s++) if (!S.feitas[s]) return S.porSeq[s];
-  for (var t = 1; t < inicio; t++) if (!S.feitas[t]) return S.porSeq[t];
+  for (var u = 1; u < inicio; u++) if (!S.feitas[u]) return S.porSeq[u];
   return null;
 }
 
 function irParaPlanta(p) {
-  if (!p) { brinde('Não há mais plantas por registar.'); return; }
+  if (!p) { brinde(t('planta.semMais')); return; }
   S.fileira = p.row;
   S.digitos = String(p.noFileira);
   desenharFileiras();
@@ -715,17 +850,17 @@ function desenharFormulario() {
   S.ordemCampos = [];
 
   $('tituloForm').textContent = S.planta.pid;
-  $('subForm').textContent = lev.titulo + ' · fileira ' + S.planta.row +
-    ', n.º ' + S.planta.noFileira +
-    (S.modo === 'crescimento' ? ' · ' + nomeRondaPt(Def.get('ronda', '')) : '');
+  $('subForm').textContent = t('form.sub', {
+    titulo: tituloLev(S.modo), row: S.planta.row, no: S.planta.noFileira
+  }) + (S.modo === 'crescimento' ? ' · ' + nomeRonda(Def.get('ronda', '')) : '');
 
   var av = $('avisoEdicao');
   if (S.edicao) {
     av.hidden = false;
     av.className = 'aviso';
-    av.textContent = 'A corrigir o registo de ' +
-      (S.edicao.recorder === Def.get('nome', '') ? 'si próprio' : S.edicao.recorder) +
-      '. Os valores que deixar em branco não apagam o que já está na folha.';
+    av.textContent = t('form.aCorrigir', {
+      quem: S.edicao.recorder === Def.get('nome', '') ? t('form.siProprio') : S.edicao.recorder
+    });
   } else {
     av.hidden = true;
   }
@@ -733,7 +868,7 @@ function desenharFormulario() {
   lev.grupos.forEach(function (g) {
     var box = document.createElement('div');
     box.className = 'grupo';
-    box.innerHTML = '<h3>' + g.nome + '</h3>';
+    box.innerHTML = '<h3>' + esc(t('grupo.' + g.chave)) + '</h3>';
 
     /* Um campo por linha. Ter dois lado a lado poupava altura mas obrigava a
      * acertar em alvos estreitos com o telemóvel na mão e sol em cima. */
@@ -747,11 +882,11 @@ function desenharFormulario() {
   if (ult && ult.botao) {
     ult.botao.textContent = '✓';
     ult.botao.classList.add('ultimo');
-    ult.botao.setAttribute('aria-label', 'Guardar e enviar');
+    ult.botao.setAttribute('aria-label', t('form.guardar'));
     ult.entrada.setAttribute('enterkeyhint', 'send');
   }
 
-  $('btnEnviar').textContent = S.edicao ? 'Guardar correcção' : 'Guardar e enviar';
+  $('btnEnviar').textContent = S.edicao ? t('form.guardarCorreccao') : t('form.guardar');
 
   /* Só faz sentido eliminar o que já existe na folha, e só quem lá pode mexer. */
   var quemTem = S.feitas[S.planta.seq];
@@ -764,15 +899,15 @@ function desenharFormulario() {
  * Vai pela mesma fila que os registos, por isso também funciona sem rede.
  */
 function eliminarRegisto() {
-  var t = agoraLocal();
+  var agora = agoraLocal();
   var eu = Def.get('nome', '');
   var dono = S.edicao ? S.edicao.recorder : S.feitas[S.planta.seq];
 
   var reg = {
     uuid: uuid(),
-    criadoEm: t.ms,
-    tsLocal: t.texto,
-    tsIso: t.iso,
+    criadoEm: agora.ms,
+    tsLocal: agora.texto,
+    tsIso: agora.iso,
     estado: 'pendente',
     recorder: eu,
     device: Def.get('aparelho', ''),
@@ -791,7 +926,7 @@ function eliminarRegisto() {
   };
 
   return DB.guardar(reg).then(function () {
-    brinde('Registo eliminado: ' + reg.pid);
+    brinde(t('form.eliminado', { pid: reg.pid }));
     delete S.feitas[reg.seq];
     S.edicao = null;
     actualizarEstado();
@@ -806,24 +941,24 @@ function eliminarRegisto() {
 /** Mostra o que vai desaparecer antes de perguntar se é mesmo para eliminar. */
 function perguntarEliminar() {
   $('textoEliminar').textContent =
-    S.planta.pid + ' — ' + LEVANTAMENTOS[S.modo].titulo +
-    (S.modo === 'crescimento' ? ' · ' + nomeRondaPt(Def.get('ronda', '')) : '');
+    S.planta.pid + ' — ' + tituloLev(S.modo) +
+    (S.modo === 'crescimento' ? ' · ' + nomeRonda(Def.get('ronda', '')) : '');
 
   var ul = $('listaEliminar');
   ul.innerHTML = '';
   camposDe(S.modo).forEach(function (c) {
     var v = S.valores[c.chave];
     if (v === undefined || v === '') return;
-    var texto = v;
-    if (c.tipo === 'cor') texto = (CORES.filter(function (o) { return o.chave === v; })[0] || {}).rotulo || v;
-    if (c.tipo === 'habito') texto = (HABITOS.filter(function (o) { return o.chave === v; })[0] || {}).rotulo || v;
+    var texto = (c.tipo === 'cor' || c.tipo === 'habito')
+      ? rotuloOpcao(c.tipo, v)
+      : mostrarNumero(v);
     var li = document.createElement('li');
-    li.textContent = c.rotulo + ': ' + texto;
+    li.textContent = rotuloCampo(c) + ': ' + texto;
     ul.appendChild(li);
   });
   if (!ul.children.length) {
     var li0 = document.createElement('li');
-    li0.textContent = '(sem valores carregados neste ecrã)';
+    li0.textContent = t('dlg.semValores');
     ul.appendChild(li0);
   }
 
@@ -847,17 +982,18 @@ function controlo(c) {
 
   if (c.tipo === 'cor' || c.tipo === 'habito') {
     var opcoes = (c.tipo === 'cor') ? CORES : HABITOS;
-    env.innerHTML = '<label class="campo">' + c.rotulo + '</label>';
+    env.innerHTML = '<label class="campo">' + esc(rotuloCampo(c)) + '</label>';
     var caixa = document.createElement('div');
     caixa.className = 'escolhas ' + (c.tipo === 'cor' ? 'cores' : 'duas');
 
     opcoes.forEach(function (o) {
       var b = document.createElement('button');
+      var rot = esc(rotuloOpcao(c.tipo, o.chave));
       b.type = 'button';
       b.className = 'escolha' + (actual === o.chave ? ' activo' : '');
       b.innerHTML = (c.tipo === 'cor')
-        ? '<span class="amostra ' + o.chave + '"></span><span>' + o.rotulo + '</span>'
-        : '<span class="icoHabito ' + o.chave + '"><i></i></span><span>' + o.rotulo + '</span>';
+        ? '<span class="amostra ' + o.chave + '"></span><span>' + rot + '</span>'
+        : '<span class="icoHabito ' + o.chave + '"><i></i></span><span>' + rot + '</span>';
       b.onclick = function () {
         var jaEstava = S.valores[c.chave] === o.chave;
         S.valores[c.chave] = jaEstava ? undefined : o.chave;   // tocar outra vez desmarca
@@ -881,17 +1017,17 @@ function controlo(c) {
 
   var id = 'campo_' + c.chave;
   env.innerHTML =
-    '<label class="campo" for="' + id + '">' + c.rotulo +
-    ' <span class="unidade">(' + c.unidade + ')</span></label>' +
+    '<label class="campo" for="' + id + '">' + esc(rotuloCampo(c)) +
+    ' <span class="unidade">(' + esc(t(c.unidade)) + ')</span></label>' +
     '<div class="linhaCampo">' +
     '<input type="text" id="' + id + '" inputmode="' +
     (c.tipo === 'int' ? 'numeric' : 'decimal') + '" autocomplete="off" enterkeyhint="next">' +
-    '<button type="button" class="seguinte" aria-label="Campo seguinte">▼</button>' +
+    '<button type="button" class="seguinte" aria-label="' + esc(t('form.campoSeguinte')) + '">▼</button>' +
     '</div>';
 
   var inp = env.querySelector('input');
   var btn = env.querySelector('.seguinte');
-  if (actual !== undefined) inp.value = String(actual).replace('.', ',');
+  if (actual !== undefined) inp.value = mostrarNumero(actual);
   inp.addEventListener('input', function () {
     var n = paraNumero(inp.value);
     var mau = (n !== null) && (isNaN(n) || n < 0 || (c.tipo === 'int' && Math.round(n) !== n));
@@ -922,15 +1058,15 @@ function validarFormulario() {
   var maus = [], vazios = [];
   camposDe(S.modo).forEach(function (c) {
     var v = S.valores[c.chave];
-    if (v === undefined || v === '') { vazios.push(c.rotulo); return; }
-    if ((c.tipo === 'num' || c.tipo === 'int') && (isNaN(v) || v < 0)) maus.push(c.rotulo);
-    if (c.tipo === 'int' && Math.round(v) !== v) maus.push(c.rotulo);
+    if (v === undefined || v === '') { vazios.push(rotuloCampo(c)); return; }
+    if ((c.tipo === 'num' || c.tipo === 'int') && (isNaN(v) || v < 0)) maus.push(rotuloCampo(c));
+    if (c.tipo === 'int' && Math.round(v) !== v) maus.push(rotuloCampo(c));
   });
   return { maus: maus, vazios: vazios };
 }
 
 function gravarRegisto() {
-  var t = agoraLocal();
+  var agora = agoraLocal();
   var vals = {};
   camposDe(S.modo).forEach(function (c) {
     if (S.valores[c.chave] !== undefined) vals[c.chave] = S.valores[c.chave];
@@ -941,9 +1077,9 @@ function gravarRegisto() {
 
   var reg = {
     uuid: uuid(),
-    criadoEm: t.ms,
-    tsLocal: t.texto,
-    tsIso: t.iso,
+    criadoEm: agora.ms,
+    tsLocal: agora.texto,
+    tsIso: agora.iso,
     estado: 'pendente',
     recorder: eu,
     device: Def.get('aparelho', ''),
@@ -961,7 +1097,7 @@ function gravarRegisto() {
   };
 
   return DB.guardar(reg).then(function () {
-    brinde((S.edicao ? 'Correcção guardada: ' : 'Guardado: ') + reg.pid);
+    brinde(t(S.edicao ? 'form.correccaoGuardada' : 'form.guardado', { pid: reg.pid }));
     S.feitas[reg.seq] = eu;
     S.edicao = null;
     actualizarEstado();
@@ -989,20 +1125,19 @@ function desenharHistorico() {
     DB.todos().then(function (l) {
       l.sort(function (a, b) { return b.criadoEm - a.criadoEm; });
       var pend = l.filter(function (e) { return e.estado === 'pendente'; }).length;
-      $('subHistorico').textContent =
-        l.length + ' registo(s) feito(s) neste aparelho · ' + pend + ' por enviar';
+      $('subHistorico').textContent = t('hist.resumoAparelho', { n: l.length, p: pend });
 
       ul.innerHTML = '';
       if (!l.length) {
-        ul.innerHTML = '<li class="vazio">Ainda não há registos.</li>';
+        ul.innerHTML = '<li class="vazio">' + esc(t('hist.vazio')) + '</li>';
         return;
       }
       l.slice(0, 120).forEach(function (e) {
         ul.appendChild(itemHistorico({
           marca: e.estado === 'enviado' ? '✅' : (e.estado === 'erro' ? '⚠️' : '⏳'),
           pid: e.pid,
-          linha2: LEVANTAMENTOS[e.mode].titulo +
-                  (e.substitui ? ' · correcção' : '') +
+          linha2: tituloLev(e.mode) +
+                  (e.substitui ? t('hist.correccao') : '') +
                   (e.estado === 'erro' ? ' — ' + e.erro : ''),
           quando: e.tsLocal.slice(0, 16),
           podeAbrir: true,
@@ -1014,14 +1149,15 @@ function desenharHistorico() {
   }
 
   // aba "Todos" — precisa do servidor
-  ul.innerHTML = '<li class="vazio">A carregar…</li>';
+  ul.innerHTML = '<li class="vazio">' + esc(t('hist.aCarregar')) + '</li>';
   var mostrarLista = function (registos, hora) {
     S.registosServidor = registos;
-    $('subHistorico').textContent = registos.length + ' registo(s) na folha' +
-      (hora ? ' · actualizado ' + hora : '');
+    $('subHistorico').textContent = hora
+      ? t('hist.resumoFolhaHora', { n: registos.length, hora: hora })
+      : t('hist.resumoFolha', { n: registos.length });
     ul.innerHTML = '';
     if (!registos.length) {
-      ul.innerHTML = '<li class="vazio">Ainda não há registos na folha.</li>';
+      ul.innerHTML = '<li class="vazio">' + esc(t('hist.vazioFolha')) + '</li>';
       return;
     }
     registos.forEach(function (r) {
@@ -1030,8 +1166,8 @@ function desenharHistorico() {
         marca: meu ? '✏️' : '🔒',
         cadeado: !meu,
         pid: r.pid,
-        linha2: (LEVANTAMENTOS[r.mode] || {}).titulo + ' · ' + r.recorder +
-                (r.ultimo && r.ultimo !== r.recorder ? ' · corrigido por ' + r.ultimo : ''),
+        linha2: (LEVANTAMENTOS[r.mode] ? tituloLev(r.mode) : r.mode) + ' · ' + r.recorder +
+                (r.ultimo && r.ultimo !== r.recorder ? t('hist.corrigidoPor', { quem: r.ultimo }) : ''),
         quando: String(r.ts).slice(0, 16),
         podeAbrir: meu,
         abrir: function () { abrirDoServidor(r); }
@@ -1046,10 +1182,9 @@ function desenharHistorico() {
     var g = null;
     try { g = JSON.parse(Def.get('historicoCache', 'null')); } catch (e) {}
     if (g) {
-      mostrarLista(g.registos, g.hora + ' (sem rede)');
+      mostrarLista(g.registos, g.hora + t('hist.semRede'));
     } else {
-      ul.innerHTML = '<li class="vazio">Sem rede e sem cópia guardada. ' +
-                     'Ligue-se à rede uma vez para ver todos os registos.</li>';
+      ul.innerHTML = '<li class="vazio">' + esc(t('hist.semCopia')) + '</li>';
       $('subHistorico').textContent = '';
     }
   });
@@ -1065,7 +1200,7 @@ function itemHistorico(o) {
   if (o.podeAbrir) {
     li.onclick = o.abrir;
   } else {
-    li.onclick = function () { brinde('Registo de outra pessoa — só o administrador o corrige.', true); };
+    li.onclick = function () { brinde(t('hist.doOutro'), true); };
   }
   return li;
 }
@@ -1087,20 +1222,20 @@ function prepararEdicao(modo, ronda, planta, valores, dono, uuidOriginal) {
 
 function abrirLocal(e) {
   var p = S.porSeq[e.seq];
-  if (!p) { brinde('Planta desconhecida.', true); return; }
+  if (!p) { brinde(t('planta.desconhecida'), true); return; }
   prepararEdicao(e.mode, e.ronda, p, e.values || {}, e.recorder, e.uuid);
 }
 
 function abrirDoServidor(r) {
   var m = /-(\d{3})$/.exec(r.pid);
   var p = m ? S.porSeq[parseInt(m[1], 10)] : null;
-  if (!p) { brinde('Planta desconhecida.', true); return; }
+  if (!p) { brinde(t('planta.desconhecida'), true); return; }
 
-  brinde('A carregar o registo…');
+  brinde(t('hist.aCarregarRegisto'));
   pedirGet({ action: 'registo', uuid: r.uuid }).then(function (j) {
     prepararEdicao(j.registo.mode, j.registo.ronda, p, j.registo.values, j.registo.recorder, r.uuid);
   }).catch(function () {
-    brinde('Não foi possível carregar. Precisa de rede.', true);
+    brinde(t('hist.naoCarregou'), true);
   });
 }
 
@@ -1113,14 +1248,15 @@ function irParaEntrada() {
 }
 
 function irParaLevantamento() {
-  $('ola').textContent = 'Olá, ' + Def.get('nome', '') + '.';
+  $('ola').textContent = t('lev.ola', { nome: Def.get('nome', '') });
   pintarCartoes();
   mostrar('ecraLevantamento');
 }
 
 function abrirEcraPlanta() {
-  $('subPlanta').textContent = LEVANTAMENTOS[S.modo].titulo + ' · colunas ' +
-    LEVANTAMENTOS[S.modo].colunas;
+  $('subPlanta').textContent = t('planta.sub', {
+    titulo: tituloLev(S.modo), colunas: LEVANTAMENTOS[S.modo].colunas
+  });
   desenharFileiras();
   resolverPlanta();
   mostrar('ecraPlanta');
@@ -1135,11 +1271,11 @@ function desenharRondasConhecidas() {
   lista.forEach(function (r) {
     var b = document.createElement('button');
     b.type = 'button';
-    b.textContent = nomeRondaPt(r);
+    b.textContent = nomeRonda(r);
     /* O nome da ronda é o cabeçalho da coluna na folha e tem de ir tal e qual.
-     * No ecrã mostra-se a versão portuguesa e guarda-se o original ao lado. */
+     * No ecrã mostra-se a versão traduzida e guarda-se o original ao lado. */
     b.onclick = function () {
-      $('inpRonda').value = nomeRondaPt(r);
+      $('inpRonda').value = nomeRonda(r);
       $('inpRonda').dataset.bruto = r;
     };
     alvo.appendChild(b);
@@ -1148,6 +1284,7 @@ function desenharRondasConhecidas() {
 
 function arrancar() {
   if (!Def.get('aparelho', '')) Def.set('aparelho', uuid().slice(0, 8));
+  definirIdioma(Def.get('idioma', 'pt'));
   pintarAdmin();
   if (!Def.get('token', '')) { mostrar('ecraActivacao'); return; }
   if (!Def.get('nome', '')) { irParaEntrada(); return; }
@@ -1163,7 +1300,7 @@ function ligarEventos() {
     if (v.length < 6) {
       av.hidden = false;
       av.className = 'aviso erro';
-      av.textContent = 'Código demasiado curto.';
+      av.textContent = t('activacao.curto');
       return;
     }
     Def.set('token', v);
@@ -1186,29 +1323,29 @@ function ligarEventos() {
     if (!pw) return;
     av.hidden = false;
     av.className = 'aviso';
-    av.textContent = 'A verificar…';
+    av.textContent = t('entrada.aVerificar');
 
     pedirGet({ action: 'admin', pw: pw }).then(function (j) {
       if (!j.admin) throw new Error('errada');
       Admin.entrar(pw);
       $('inpAdmin').value = '';
       av.hidden = true;
-      brinde('Modo administrador ligado');
+      brinde(t('entrada.adminLigado'));
     }).catch(function (e) {
       av.className = 'aviso erro';
       av.textContent = (e && e.message === 'sem rede')
-        ? 'Precisa de rede para entrar como administrador.'
-        : 'Palavra-passe errada.';
+        ? t('entrada.precisaRede')
+        : t('entrada.senhaErrada');
     });
   };
 
   $('ligSairAdmin').onclick = function () {
     Admin.sair();
-    brinde('Saiu do modo administrador');
+    brinde(t('entrada.saiuAdmin'));
   };
 
   $('ligDesactivar').onclick = function () {
-    if (confirm('Apagar o código de activação deste aparelho? Os registos guardados não se perdem.')) {
+    if (confirm(t('entrada.confirmarDesactivar'))) {
       Def.del('token');
       mostrar('ecraActivacao');
     }
@@ -1229,7 +1366,7 @@ function ligarEventos() {
   };
 
   $('btnActualizarProgresso').onclick = function () {
-    brinde('A actualizar…');
+    brinde(t('prog.aActualizar'));
     carregarProgresso(true);
   };
 
@@ -1257,7 +1394,7 @@ function ligarEventos() {
         S.digitos = '';
         S.edicao = null;
         if (S.modo === 'crescimento') {
-          $('inpRonda').value = nomeRondaPt(Def.get('ronda', ''));
+          $('inpRonda').value = nomeRonda(Def.get('ronda', ''));
           $('inpRonda').dataset.bruto = Def.get('ronda', '');
           desenharRondasConhecidas();
           mostrar('ecraRonda');
@@ -1275,7 +1412,7 @@ function ligarEventos() {
     campo.classList.remove('invalido');
     // se o texto ainda é a tradução da ronda escolhida, grava-se o nome original
     var bruto = campo.dataset.bruto || '';
-    Def.set('ronda', (bruto && v === nomeRondaPt(bruto)) ? bruto : v);
+    Def.set('ronda', (bruto && v === nomeRonda(bruto)) ? bruto : v);
     abrirEcraPlanta();
   };
 
@@ -1283,10 +1420,10 @@ function ligarEventos() {
   for (var k = 0; k < teclas.length; k++) {
     (function (b) {
       b.onclick = function () {
-        var t = b.getAttribute('data-t');
-        if (t === 'limpar') S.digitos = '';
-        else if (t === 'apagar') S.digitos = S.digitos.slice(0, -1);
-        else if (S.digitos.length < 2) S.digitos = (S.digitos === '0' ? '' : S.digitos) + t;
+        var tec = b.getAttribute('data-tecla');
+        if (tec === 'limpar') S.digitos = '';
+        else if (tec === 'apagar') S.digitos = S.digitos.slice(0, -1);
+        else if (S.digitos.length < 2) S.digitos = (S.digitos === '0' ? '' : S.digitos) + tec;
         resolverPlanta();
       };
     })(teclas[k]);
@@ -1333,9 +1470,9 @@ function ligarEventos() {
 
   $('btnEnviar').onclick = function () {
     var v = validarFormulario();
-    if (v.maus.length) { brinde('Corrija: ' + v.maus.join(', '), true); return; }
+    if (v.maus.length) { brinde(t('form.corrija', { lista: v.maus.join(', ') }), true); return; }
     if (v.vazios.length === camposDe(S.modo).length) {
-      brinde('Preencha pelo menos um valor.', true);
+      brinde(t('form.peloMenosUm'), true);
       return;
     }
     if (v.vazios.length) {
@@ -1393,7 +1530,9 @@ carregarPlantas().then(function () {
   actualizarEstado();
   enviarFila();
 }).catch(function () {
+  /* Ainda não se sabe o idioma escolhido (o arranque falhou antes disso), por
+   * isso vai-se buscá-lo directamente ao armazenamento. */
+  S.idioma = Def.get('idioma', 'pt');
   document.querySelector('main').innerHTML =
-    '<div class="aviso erro">Não foi possível carregar a lista de plantas. ' +
-    'Abra a aplicação uma vez com rede para a instalar no telemóvel.</div>';
+    '<div class="aviso erro">' + esc(t('erro.plantas')) + '</div>';
 });
