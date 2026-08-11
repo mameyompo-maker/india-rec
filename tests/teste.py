@@ -2,6 +2,7 @@
 """Teste ponta-a-ponta do India Rec com Playwright (viewport de telemovel)."""
 
 import json
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -11,6 +12,15 @@ BASE = "http://127.0.0.1:8765"
 TOKEN = "TESTE-123456"
 ADMIN_PW = "adm-2026"
 FALHAS = []
+
+# Lotes pela ordem da folha. O n.o de referencia e a posicao nesta lista: o
+# 'India #bag01' e o 1 e o 'India#S-4' e o 17 (nao ha bag08).
+LOTES = [("India #bag01", 30), ("India #bag02", 25), ("India #bag03", 25),
+         ("India #bag04", 35), ("India #bag05", 15), ("India #bag06", 25),
+         ("India #bag07", 25), ("India #bag09", 20), ("India #bag10", 25),
+         ("India #bag11", 15), ("India #bag12", 25), ("India #bag13", 35),
+         ("India #bag14", 25), ("India #bag15", 35), ("India#S-2A", 20),
+         ("India#S-2B", 15), ("India#S-4", 20)]
 
 
 def ok(cond, msg):
@@ -29,10 +39,20 @@ def log_servidor():
     return bater("/__estado")["log"]
 
 
-def voltar(pag):
+def posicao(seq):
+    """(n.o de referencia, nome curto do lote, n.o dentro do lote)."""
+    acc = 0
+    for i, (nome, n) in enumerate(LOTES):
+        if seq <= acc + n:
+            return i + 1, re.sub(r"^India\s*#\s*", "", nome), seq - acc
+        acc += n
+    raise ValueError(seq)
+
+
+def voltar(pag, ate="#ecraLevantamento"):
     """Carrega no "Voltar" do ecra que esta visivel."""
     pag.locator('.ecra:not([hidden]) [data-voltar]').first.click()
-    pag.wait_for_selector("#ecraLevantamento:not([hidden])")
+    pag.wait_for_selector(ate + ":not([hidden])")
 
 
 def entrar(pag, nome):
@@ -41,19 +61,21 @@ def entrar(pag, nome):
     pag.wait_for_selector("#ecraLevantamento:not([hidden])")
 
 
-def escolher_planta(pag, fileira, numero):
-    pag.locator(f'#grelhaFileiras button:has-text("{fileira}")').first.click()
+def escolher_seq(pag, seq):
+    """Escolhe a planta pelo n.o de referencia e pelo numero dentro do lote."""
+    _, curto, no = posicao(seq)
+    pag.locator(f'#grelhaFileiras button:has-text("{curto}")').first.click()
     pag.locator('#teclado button[data-tecla="limpar"]').click()
-    for d in str(numero):
+    for d in str(no):
         pag.locator(f'#teclado button[data-tecla="{d}"]').click()
 
 
-def guardar(pag, esperar_dialogo=True):
+def guardar(pag, esperar_dialogo=True, destino="#ecraPlanta"):
     pag.click("#btnEnviar")
     if esperar_dialogo:
         pag.wait_for_selector("#dlgIncompleto[open]")
         pag.click("#btnEnviarAssim")
-    pag.wait_for_selector("#ecraPlanta:not([hidden])")
+    pag.wait_for_selector(destino + ":not([hidden])")
     pag.wait_for_timeout(900)
 
 
@@ -83,8 +105,10 @@ def main():
         print("\n[2] registo normal")
         pag.click('.cartao[data-modo="descritores"]')
         pag.wait_for_selector("#ecraPlanta:not([hidden])")
-        escolher_planta(pag, "r02", 10)
-        ok("NBF(Tanheia)26-045" in pag.inner_text("#resolvidoPlanta"), "r02/10 -> -045")
+        escolher_seq(pag, 45)                     # ref 2 (bag02), n.o 15
+        alvo = pag.inner_text("#resolvidoPlanta")
+        ok("NBF(Tanheia)26-045" in alvo, f"ref 2 / n.o 15 -> -045 ({alvo.splitlines()[0]})")
+        ok("Fileira r02" in alvo, "a fileira aparece como informacao de apoio")
         pag.click("#btnPlanta")
         pag.wait_for_selector("#ecraFormulario:not([hidden])")
         pag.fill("#campo_limboFoliar", "12,5")
@@ -96,9 +120,9 @@ def main():
         ok(reg[0]["accao"] == "Registo", f"marcado como Registo ({reg[0]['accao']})")
         ok(reg[0]["values"]["limboFoliar"] == 12.5, "virgula decimal convertida")
 
-        print("\n[3] progresso")
-        ok("1/35" in pag.inner_text('#grelhaFileiras button:has-text("r02")'),
-           "contador da fileira r02 mostra 1/35")
+        print("\n[3] progresso por n.o de referencia")
+        ok("1/25" in pag.inner_text('#grelhaFileiras button:has-text("bag02")'),
+           "contador do lote bag02 mostra 1/25")
         voltar(pag)
         pag.wait_for_timeout(300)
         ok("1 de 415" in pag.inner_text('[data-texto="descritores"]'),
@@ -109,13 +133,13 @@ def main():
         pag.wait_for_timeout(800)
         ok("1 / 415" in pag.inner_text("#totalProgresso"), "resumo total 1 / 415")
         ok("414 plantas por registar" in pag.inner_text("#totalProgresso"), "conta as que faltam")
-        ok(pag.locator("#listaFileiras .linhaFileira").count() == 16, "16 barras de fileira")
+        ok(pag.locator("#listaFileiras .linhaFileira").count() == 17, "17 barras, uma por lote")
 
         print("\n[4] correccao do proprio registo")
         voltar(pag)
         pag.click('.cartao[data-modo="descritores"]')
         pag.wait_for_selector("#ecraPlanta:not([hidden])")
-        escolher_planta(pag, "r02", 10)
+        escolher_seq(pag, 45)
         ok("pode corrigir" in pag.inner_text("#resolvidoPlanta"), "assinala que ja esta registada")
         ok(not pag.locator("#btnPlanta").is_disabled(), "o proprio pode abrir para corrigir")
         pag.click("#btnPlanta")
@@ -134,16 +158,18 @@ def main():
         ok(reg[-1]["substitui"], "guarda o ID do envio que substitui")
         ok(reg[-1]["values"]["limboFoliar"] == 14, "valor corrigido chegou")
 
-        print("\n[5] registo de outra pessoa fica bloqueado")
+        print("\n[5] o registo de outra pessoa tambem se pode corrigir")
         bater("/__semear", quem="Arlindo", pid="NBF(Tanheia)26-100", mode="descritores")
         voltar(pag)
         pag.click('.cartao[data-modo="descritores"]')
         pag.wait_for_timeout(1200)        # deixa o progresso chegar do servidor
-        escolher_planta(pag, "r03", 30)
+        escolher_seq(pag, 100)                    # ref 4 (bag04), n.o 20
         texto = pag.inner_text("#resolvidoPlanta")
-        ok("NBF(Tanheia)26-100" in texto, "r03/30 -> -100")
-        ok("Arlindo" in texto and "🔒" in texto, f"mostra o cadeado com o dono ({texto.splitlines()[1][:60]})")
-        ok(pag.locator("#btnPlanta").is_disabled(), "botao bloqueado para registo de outra pessoa")
+        ok("NBF(Tanheia)26-100" in texto, "ref 4 / n.o 20 -> -100")
+        ok("Arlindo" in texto, f"diz de quem e o registo ({texto.splitlines()[1][:60]})")
+        ok("🔒" not in texto, "ja nao ha cadeado")
+        ok(not pag.locator("#btnPlanta").is_disabled(),
+           "o registo de outra pessoa abre sem modo administrador")
 
         print("\n[6] historico: neste aparelho vs todos")
         voltar(pag)
@@ -151,16 +177,15 @@ def main():
         pag.wait_for_selector("#ecraHistorico:not([hidden])")
         pag.wait_for_selector("#listaHistorico li", timeout=5000)
         ok(pag.locator("#listaHistorico li").count() == 2, "2 registos locais neste aparelho")
+        ok("(India #bag02)" in pag.inner_text("#listaHistorico"),
+           "a lista identifica pelo n.o de referencia")
 
         pag.click('.aba[data-aba="todos"]')
         pag.wait_for_timeout(1200)
         itens = pag.locator("#listaHistorico li")
         ok(itens.count() == 2, f"2 registos na folha ({itens.count()})")
-        ok(pag.locator("#listaHistorico li:has-text('🔒')").count() == 1,
-           "o registo do Arlindo aparece com cadeado")
-        pag.locator("#listaHistorico li:has-text('🔒')").click()
-        pag.wait_for_timeout(400)
-        ok(pag.locator("#ecraHistorico").is_visible(), "tocar no cadeado nao abre o formulario")
+        ok(pag.locator("#listaHistorico li:has-text('🔒')").count() == 0,
+           "nenhum registo aparece trancado")
 
         print("\n[7] modo administrador")
         voltar(pag)
@@ -185,8 +210,7 @@ def main():
         print("\n[8] administrador corrige o registo de outra pessoa")
         pag.click('.cartao[data-modo="descritores"]')
         pag.wait_for_timeout(1200)
-        escolher_planta(pag, "r03", 30)
-        ok(not pag.locator("#btnPlanta").is_disabled(), "administrador pode abrir o registo do Arlindo")
+        escolher_seq(pag, 100)
         pag.click("#btnPlanta")
         pag.wait_for_selector("#ecraFormulario:not([hidden])", timeout=8000)
         pag.wait_for_timeout(600)
@@ -200,7 +224,7 @@ def main():
         ok(reg[-1]["accao"] == "Correcção", "registada como correccao")
         ok(reg[-1]["recorder"] == "Cheia", "fica registado quem fez a correccao")
 
-        print("\n[9] sem administrador a correccao alheia e recusada")
+        print("\n[9] sem administrador a correccao alheia passa na mesma")
         voltar(pag)
         pag.click("#ligTrocarNome")
         pag.click("#ligSairAdmin")
@@ -210,15 +234,29 @@ def main():
 
         pag.click('.cartao[data-modo="descritores"]')
         pag.wait_for_timeout(1200)
-        escolher_planta(pag, "r02", 10)     # registo da Cheia
-        ok(pag.locator("#btnPlanta").is_disabled(), "a Joana nao pode mexer no registo da Cheia")
+        escolher_seq(pag, 45)               # registo da Cheia
+        ok(not pag.locator("#btnPlanta").is_disabled(),
+           "a Joana pode abrir o registo da Cheia")
+        antes = len(log_servidor())
+        pag.click("#btnPlanta")
+        pag.wait_for_selector("#ecraFormulario:not([hidden])", timeout=8000)
+        pag.wait_for_timeout(600)
+        pag.fill("#campo_limboFoliar", "15")
+        guardar(pag)
+        reg = log_servidor()
+        ok(len(reg) == antes + 1, "a correccao da Joana chegou ao servidor")
+        ok(reg[-1]["estado"] == "OK", f"e foi aceite ({reg[-1]['estado'][:60]})")
+        ok(reg[-1]["recorder"] == "Joana", "com o nome de quem corrigiu")
 
         print("\n[10] saltar para a proxima por fazer")
+        # guardar ja tinha avancado sozinho para a seguinte do mesmo lote (-046)
+        ok("26-046" in pag.inner_text("#resolvidoPlanta"),
+           f"guardar avanca para a planta seguinte do lote ({pag.inner_text('#resolvidoPlanta').splitlines()[0]})")
         pag.click("#ligProximaPorFazer")
         pag.wait_for_timeout(300)
         alvo = pag.inner_text("#resolvidoPlanta")
-        # procura a partir da planta actual (-045), por isso a seguinte por fazer e -046
-        ok("26-046" in alvo, f"salta para a seguinte por registar ({alvo.splitlines()[0]})")
+        # procura a partir da planta actual (-046), por isso a seguinte por fazer e -047
+        ok("26-047" in alvo, f"salta para a seguinte por registar ({alvo.splitlines()[0]})")
         ok("já registada" not in alvo, "a planta escolhida esta mesmo por registar")
 
         print("\n[11] offline: fila local e envio ao voltar a rede")
@@ -261,7 +299,7 @@ def main():
         voltar(pag)
         pag.click('.cartao[data-modo="descritores"]')
         pag.wait_for_selector("#ecraPlanta:not([hidden])")
-        escolher_planta(pag, "r03", 5)
+        escolher_seq(pag, 75)                     # ref 3 (bag03), n.o 20
         pag.click("#btnPlanta")
         pag.wait_for_selector("#ecraFormulario:not([hidden])")
 
@@ -292,6 +330,9 @@ def main():
         foco = pag.evaluate("() => document.activeElement && document.activeElement.className")
         ok("escolha" in (foco or ""), f"escolher cor avanca para a cor seguinte ({foco})")
 
+        # a caixa de observacoes fica fora da ordem de preenchimento
+        ok(pag.locator("#campoNotas").count() == 1, "o formulario tem caixa de observacoes")
+
         # Enter no ultimo campo grava e envia
         antes = len(log_servidor())
         pag.fill("#campo_sementeLargura", "0,9")
@@ -302,22 +343,22 @@ def main():
         pag.wait_for_timeout(900)
         ok(len(log_servidor()) == antes + 1, "Enter no ultimo campo grava e envia")
 
-        print("\n[14] serpentina e textos em portugues")
-        ok("→" in pag.inner_text('#grelhaFileiras button:has-text("r03")'),
-           "fileira impar indica que o n.o 1 esta a esquerda")
-        ok("←" in pag.inner_text('#grelhaFileiras button:has-text("r02")'),
-           "fileira par indica que o n.o 1 esta a direita")
-        ok(pag.locator('#grelhaFileiras button:has-text("r16")').count() == 1,
-           "a fileira r16 existe")
-        escolher_planta(pag, "r02", 10)
+        print("\n[14] n.os de referencia no ecra")
+        botoes = pag.locator("#grelhaFileiras button")
+        ok(botoes.count() == 17, f"17 n.os de referencia ({botoes.count()})")
+        ok(botoes.first.inner_text().startswith("1"), "o primeiro e o n.o 1")
+        ok("bag01" in botoes.first.inner_text(), "e diz que lote e")
+        ok("S-4" in botoes.last.inner_text(), "o ultimo (17) e o India#S-4")
+        escolher_seq(pag, 45)
         alvo = pag.inner_text("#resolvidoPlanta")
-        ok("Índia — saco" in alvo, f"nome do lote em portugues ({alvo})")
+        ok("2 (India #bag02)" in alvo, f"mostra o n.o de referencia com o lote ({alvo})")
+        ok("n.º 15" in alvo, "e o numero dentro do lote")
+        ok("Fileira r02, n.º 10 na fileira" in alvo, f"a fileira vem por baixo ({alvo})")
         ok("n.º 1 à direita" in alvo, f"indica a ponta por onde comecar ({alvo})")
-        ok("India #bag" not in alvo, "nao sobra ingles no ecra da planta")
 
         print("\n[15] eliminar um registo, com confirmacao pelo meio")
-        # a r03/5 foi registada no bloco [13]; abre-a outra vez para a eliminar
-        escolher_planta(pag, "r03", 5)
+        # a ref 3 / n.o 20 foi registada no bloco [13]; abre-a outra vez para a eliminar
+        escolher_seq(pag, 75)
         pag.click("#btnPlanta")
         pag.wait_for_selector("#ecraFormulario:not([hidden])")
         pag.wait_for_timeout(400)
@@ -344,12 +385,142 @@ def main():
         ok(len(reg) == antes + 1, f"a eliminacao chegou ao servidor ({len(reg)})")
         ok(reg[-1]["accao"] == "Eliminação", f"gravada como Eliminação ({reg[-1]['accao']})")
 
-        escolher_planta(pag, "r03", 5)
+        escolher_seq(pag, 75)
         alvo = pag.inner_text("#resolvidoPlanta")
         ok("já registada" not in alvo, f"a planta volta a contar como por registar ({alvo})")
         ok(pag.locator("#btnPlanta").is_enabled(), "e pode ser registada de novo")
 
-        print("\n[16] service worker e erros de JS")
+        print("\n[16] observacoes livres")
+        antes = len(log_servidor())
+        escolher_seq(pag, 76)                     # ref 3 (bag03), n.o 21
+        pag.click("#btnPlanta")
+        pag.wait_for_selector("#ecraFormulario:not([hidden])")
+        pag.fill("#campoNotas", "Partida pelo vento")
+        pag.fill("#campo_limboFoliar", "9")
+        guardar(pag)
+        reg = log_servidor()
+        ok(len(reg) == antes + 1, "o registo com observacao chegou")
+        ok(reg[-1].get("notas") == "Partida pelo vento",
+           f"a observacao viaja para o servidor ({reg[-1].get('notas')})")
+
+        escolher_seq(pag, 76)
+        pag.click("#btnPlanta")
+        pag.wait_for_selector("#ecraFormulario:not([hidden])")
+        pag.wait_for_timeout(400)
+        ok(pag.input_value("#campoNotas") == "Partida pelo vento",
+           f"ao corrigir, a observacao anterior aparece ({pag.input_value('#campoNotas')})")
+        pag.click("#ligTrocarPlanta")
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
+
+        # so uma observacao, sem nenhuma medida, tambem e um registo valido
+        antes = len(log_servidor())
+        escolher_seq(pag, 77)
+        pag.click("#btnPlanta")
+        pag.wait_for_selector("#ecraFormulario:not([hidden])")
+        pag.fill("#campoNotas", "Nao encontrada no campo")
+        guardar(pag)
+        reg = log_servidor()
+        ok(len(reg) == antes + 1 and reg[-1]["estado"] == "OK",
+           "uma observacao sozinha chega para gravar")
+
+        print("\n[17] marcar uma planta como morta")
+        antes = len(log_servidor())
+        escolher_seq(pag, 78)
+        ok(pag.locator("#ligMorta").is_visible(), "o botao de planta morta aparece de lado")
+        pag.click("#ligMorta")
+        pag.wait_for_timeout(1200)
+        reg = log_servidor()
+        ok(len(reg) == antes + 1, "a marca chegou ao servidor")
+        ok(reg[-1]["accao"] == "Planta morta", f"gravada como Planta morta ({reg[-1]['accao']})")
+        ok("morta" in pag.inner_text("#resolvidoPlanta"), "o ecra assinala a planta morta")
+
+        # nao conta como registo, mas tambem nao fica na lista do que falta fazer
+        pag.click("#ligProximaPorFazer")
+        pag.wait_for_timeout(300)
+        ok("26-078" not in pag.inner_text("#resolvidoPlanta"),
+           "a proxima por fazer salta as plantas mortas")
+
+        escolher_seq(pag, 78)
+        pag.click("#ligMorta")                    # desmarcar
+        pag.wait_for_timeout(1200)
+        reg = log_servidor()
+        ok(reg[-1]["accao"] == "Planta viva", f"desmarcar fica registado ({reg[-1]['accao']})")
+        ok("morta" not in pag.inner_text("#resolvidoPlanta"), "e a marca sai do ecra")
+
+        print("\n[18] Voltar vai ao ecra anterior")
+        voltar(pag)                                # planta -> levantamento
+        pag.click("#ligHistorico")
+        pag.wait_for_selector("#ecraHistorico:not([hidden])")
+        pag.wait_for_selector("#listaHistorico li", timeout=5000)
+        pag.locator("#listaHistorico li.tocavel").first.click()
+        pag.wait_for_selector("#ecraFormulario:not([hidden])", timeout=8000)
+        pag.click("#ligTrocarPlanta")
+        pag.wait_for_timeout(400)
+        ok(pag.locator("#ecraHistorico").is_visible(),
+           "quem abriu um registo pelo historico volta ao historico")
+
+        # e guardar a correccao tambem devolve ao historico
+        pag.locator("#listaHistorico li.tocavel").first.click()
+        pag.wait_for_selector("#ecraFormulario:not([hidden])", timeout=8000)
+        pag.wait_for_timeout(400)
+        pag.fill("#campo_limboFoliar", "7")
+        guardar(pag, esperar_dialogo=True, destino="#ecraHistorico")
+        ok(pag.locator("#ecraHistorico").is_visible(),
+           "depois de guardar a correccao volta ao historico")
+        voltar(pag)
+
+        print("\n[19] campos por preencher com o nome completo")
+        pag.click('.cartao[data-modo="descritores"]')
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
+        escolher_seq(pag, 79)
+        pag.click("#btnPlanta")
+        pag.wait_for_selector("#ecraFormulario:not([hidden])")
+        pag.fill("#campo_limboFoliar", "10")
+        pag.click("#btnEnviar")
+        pag.wait_for_selector("#dlgIncompleto[open]")
+        lista = pag.inner_text("#listaVazios")
+        ok("Comprimento da semente" in lista and "Largura do fruto" in lista,
+           f"diz de que comprimento e de que largura se trata ({lista[:80]!r})")
+        ok(lista.count("Comprimento\n") == 0, "nao ha 'Comprimento' solto na lista")
+        pag.click("#btnVoltarPreencher")
+        pag.wait_for_timeout(200)
+
+        print("\n[20] um registo por enviar da versao ANTIGA nao se perde")
+        # Isto e o caso que nao pode falhar: telemoveis que estiveram sem rede
+        # tem na fila envios feitos pela versao anterior — sem 'notas', sem
+        # 'accao' e com 'precisaAdmin: true', que era o que os prendia a espera
+        # do modo administrador. Tem de sair na mesma, e sem administrador.
+        antes = len(log_servidor())
+        pag.evaluate("""() => new Promise((feito, mau) => {
+          const p = indexedDB.open('indiarec', 1);
+          p.onsuccess = () => {
+            const tx = p.result.transaction('envios', 'readwrite');
+            tx.objectStore('envios').put({
+              uuid: 'antigo-1', criadoEm: 1, tsLocal: '11/08/2026 09:00:00',
+              tsIso: '2026-08-11T09:00:00+02:00', estado: 'pendente',
+              recorder: 'Colega', device: 'aparelho-antigo',
+              mode: 'descritores', ronda: '', substitui: '',
+              precisaAdmin: true,
+              seq: 210, pid: 'NBF(Tanheia)26-210', row: 'r06',
+              noFileira: 35, noFolha: 10, source: 'India #bag10',
+              values: { limboFoliar: 6.5 }
+            });
+            tx.oncomplete = () => feito(1);
+            tx.onerror = () => mau(tx.error);
+          };
+          p.onerror = () => mau(p.error);
+        })""")
+        ok(pag.locator("#crachaAdmin").is_hidden(), "e isto sem modo administrador ligado")
+        pag.evaluate("enviarFila()")
+        pag.wait_for_timeout(2500)
+        reg = log_servidor()
+        ok(len(reg) == antes + 1, f"o envio antigo chegou ao servidor ({len(reg) - antes})")
+        ok(reg[-1]["uuid"] == "antigo-1" and reg[-1]["recorder"] == "Colega",
+           f"com os dados que tinha ({reg[-1]['uuid']}, {reg[-1]['recorder']})")
+        ok(reg[-1]["estado"] == "OK", f"e foi aceite ({reg[-1]['estado'][:60]})")
+        ok(pag.locator("#contadorFila").is_hidden(), "a fila ficou vazia")
+
+        print("\n[21] service worker e erros de JS")
         ok(pag.evaluate("navigator.serviceWorker.controller ? 1 : 0") == 1, "service worker activo")
         reais = [e for e in erros if "favicon" not in e.lower()]
         ok(not reais, f"sem erros de JS ({reais[:3]})")

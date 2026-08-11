@@ -106,7 +106,7 @@ def main():
 
         print("\n[2] constantes de coluna do Log")
         n_cab = pag.evaluate("CABECALHO_LOG.length")
-        ok(n_cab == 36, f"cabecalho tem 36 colunas ({n_cab})")
+        ok(n_cab == 39, f"cabecalho tem 39 colunas ({n_cab})")
         ok(pag.evaluate("CABECALHO_LOG[COL_UUID-1]") == "ID do envio", "COL_UUID aponta para 'ID do envio'")
         ok(pag.evaluate("CABECALHO_LOG[COL_SUBSTITUI-1]") == "Substitui o envio", "COL_SUBSTITUI certo")
         ok(pag.evaluate("CABECALHO_LOG[COL_ESTADO-1]") == "Estado", "COL_ESTADO certo")
@@ -117,6 +117,24 @@ def main():
         ok(pag.evaluate("CABECALHO_LOG[COL_PID-1]") == "Plant ID", "COL_PID certo")
         ok(pag.evaluate("CABECALHO_LOG[COL_PRIMEIRO_CAMPO-1]") == "Altura da planta (m)",
            "COL_PRIMEIRO_CAMPO aponta para o 1o campo")
+        # as tres novas entraram DEPOIS de "Estado": o Log ja tem linhas gravadas
+        # e mexer no meio deslocava o significado de tudo o que esta a direita
+        ok(pag.evaluate("CABECALHO_LOG[COL_NOTAS-1]") == "Notas", "COL_NOTAS certo")
+        ok(pag.evaluate("CABECALHO_LOG[COL_ESTADO_PLANTA-1]") == "Estado da planta",
+           "COL_ESTADO_PLANTA certo")
+        ok(pag.evaluate("CABECALHO_LOG[COL_REF-1]") == "N.º de referência", "COL_REF certo")
+        ok(pag.evaluate("COL_ESTADO") == 36,
+           "as colunas antigas nao se mexeram (Estado continua na 36)")
+
+        somas = pag.evaluate("LOTES.reduce((a,l) => a + l.count, 0)")
+        ok(pag.evaluate("LOTES.length") == 17 and somas == 415,
+           f"17 lotes que somam 415 plantas ({pag.evaluate('LOTES.length')}, {somas})")
+        ok(pag.evaluate("JSON.stringify(refDoSeq_(45))") ==
+           '{"ref":2,"source":"India #bag02","noLote":15}',
+           "planta 45 -> ref 2, n.o 15 (" + pag.evaluate("JSON.stringify(refDoSeq_(45))") + ")")
+        ok(pag.evaluate("refDoSeq_(181).ref") == 8,
+           "sem bag08: o India #bag09 e o n.o 8 de referencia")
+        ok(pag.evaluate("refDoSeq_(415).ref") == 17, "a ultima planta e do n.o 17")
 
         print("\n[3] token e autorizacao")
         r = pag.evaluate("() => JSON.parse(doPost({postData:{contents: JSON.stringify("
@@ -149,10 +167,10 @@ def main():
         fk = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 7, 13)")
         ok(fk == [1, 0.6, 0.7, 2, 0, 8, 16], f"G..M nao foi tocado ({fk})")
 
-        cab = pag.evaluate("colunas(LIVRO.folhas['Log'], 1, 1, 36)")
+        cab = pag.evaluate("colunas(LIVRO.folhas['Log'], 1, 1, 39)")
         ok(cab[3] == "Acção" and cab[35] == "Estado", "o Log ganhou o cabecalho certo")
-        l2 = pag.evaluate("colunas(LIVRO.folhas['Log'], 2, 1, 36)")
-        ok(len(l2) == 36, "linha do Log com 36 colunas")
+        l2 = pag.evaluate("colunas(LIVRO.folhas['Log'], 2, 1, 39)")
+        ok(len(l2) == 39, "linha do Log com 39 colunas")
         ok(l2[2] == "Cheia", f"Registado por ({l2[2]})")
         ok(l2[3] == "Registo", f"Acção ({l2[3]})")
         ok(l2[4] == "Descritores (N-Z)", f"Levantamento ({l2[4]})")
@@ -162,6 +180,7 @@ def main():
         ok(l2[19] == "Vertical", f"Habito no Log ({l2[19]})")
         ok(l2[32] == "u1", f"ID do envio ({l2[32]})")
         ok(l2[35] == "OK", f"Estado ({l2[35]})")
+        ok(l2[38] == 2, f"N.º de referência calculado a partir do seq ({l2[38]})")
 
         print("\n[5] deduplicacao pelo ID do envio")
         r = post(pag, [envio()])
@@ -176,34 +195,31 @@ def main():
         ok(lx[1] == 14, f"M47 actualizado ({lx[1]})")
         ok(lx[0] == "Vertical", f"L47 preservado apesar de vir vazio ({lx[0]})")
         ok(lx[8] == "Red", f"T47 preservado ({lx[8]})")
-        l3 = pag.evaluate("colunas(LIVRO.folhas['Log'], 3, 1, 36)")
+        l3 = pag.evaluate("colunas(LIVRO.folhas['Log'], 3, 1, 39)")
         ok(l3[33] == "u1", f"Substitui o envio ({l3[33]})")
 
-        print("\n[7] registo de outra pessoa e recusado")
+        print("\n[7] qualquer pessoa corrige (mudou em 2026-08-12)")
         r = post(pag, [envio(uuid="u3", recorder="Joana", values={"limboFoliar": 99})])
         res = r["resultados"][0]
-        ok(res["ok"] is False, "a Joana nao consegue escrever por cima da Cheia")
-        ok("Cheia" in res["erro"], f"a mensagem diz de quem e ({res.get('erro')})")
+        ok(res["ok"], "a Joana corrige o registo da Cheia sem ser administradora", res)
+        ok(res["accao"] == "Correc\u00e7\u00e3o", f"marcada como Correc\u00e7\u00e3o ({res.get('accao')})")
         lx = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 14, 26)")
-        ok(lx[1] == 14, f"o valor da Cheia ficou intacto ({lx[1]})")
-        l4 = pag.evaluate("colunas(LIVRO.folhas['Log'], 4, 1, 36)")
-        ok(str(l4[35]).startswith("ERRO:"), f"a recusa fica registada no Log ({l4[35]})")
+        ok(lx[1] == 99, f"o valor da Joana ficou escrito ({lx[1]})")
+        j = get(pag, {"action": "estado", "mode": "descritores"})
+        ok(dict(j["feitas"]).get(45) == "Cheia",
+           "o dono continua a ser quem criou o registo")
 
-        print("\n[8] o administrador consegue")
+        print("\n[8] o administrador ja nao e preciso para escrever")
         r = post(pag, [envio(uuid="u4", recorder="Joana", values={"limboFoliar": 21})], admin=ADMIN)
         ok(r["resultados"][0]["ok"], "com a palavra-passe passa", r["resultados"][0])
         ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 14, 26)")[1] == 21, "o valor foi corrigido")
+        # a escrita deixou de depender do administrador: uma palavra-passe errada
+        # ja nao bloqueia nada (mas o GET action=admin continua a verifica-la)
         r = post(pag, [envio(uuid="u5", recorder="Pedro", values={"limboFoliar": 22})], admin="errada")
-        ok(r["resultados"][0]["ok"] is False, "com a palavra-passe errada nao passa")
-
-        # a correccao pelo administrador nao pode roubar o registo a quem o criou
-        r = post(pag, [envio(uuid="u6", recorder="Cheia", values={"limboFoliar": 23})])
-        ok(r["resultados"][0]["ok"],
-           "a Cheia continua dona do registo depois de o admin lhe mexer",
-           r["resultados"][0])
-        r = post(pag, [envio(uuid="u7", recorder="Joana", values={"limboFoliar": 24})])
-        ok(r["resultados"][0]["ok"] is False,
-           "a Joana (que so corrigiu como admin) nao fica dona do registo")
+        ok(r["resultados"][0]["ok"], "uma palavra-passe errada nao impede a correccao")
+        j = get(pag, {"action": "estado", "mode": "descritores"})
+        ok(dict(j["feitas"]).get(45) == "Cheia",
+           "e mesmo depois de tres pessoas mexerem, a dona continua a ser a Cheia")
 
         print("\n[9] validacao dos valores")
         casos = [
@@ -280,7 +296,10 @@ def main():
            f"3 registos distintos (descritores-45, crescimento-45, crescimento-46) ({len(j['registos'])})")
         d45 = [x for x in j["registos"] if x["mode"] == "descritores"][0]
         ok(d45["recorder"] == "Cheia", f"mostra o DONO, nao quem corrigiu ({d45['recorder']})")
-        ok(d45["ultimo"] == "Cheia", f"ultimo a mexer ({d45['ultimo']})")
+        # o ultimo a mexer foi o Pedro, no bloco [8] — o dono e que nao muda
+        ok(d45["ultimo"] == "Pedro", f"ultimo a mexer ({d45['ultimo']})")
+        ok(d45["ref"] == 2 and d45["lote"] == "India #bag02" and d45["noLote"] == 15,
+           f"o historico traz o n.o de referencia ({d45.get('ref')}, {d45.get('lote')}, {d45.get('noLote')})")
         ok(d45["accao"] == "Correcção", f"mostra a accao ({d45['accao']})")
 
         # u1 foi o envio com habito + cor preenchidos
@@ -315,29 +334,22 @@ def main():
         antes = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 14, 26)")
         ok(antes[1] == 7.5 and antes[8] == "Red", f"escrita antes de eliminar ({antes[1]}, {antes[8]})")
 
-        # quem nao e o dono nao pode eliminar
-        r = post(pag, [envio(uuid="e1", seq=320, pid="NBF(Tanheia)26-320",
-                             recorder="Joana", accao="eliminar", values={})])
-        ok(r["resultados"][0]["ok"] is False, "outra pessoa nao pode eliminar")
-        depois = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 14, 26)")
-        ok(depois[1] == 7.5, "a recusa nao apagou nada")
-
-        # o dono elimina
+        # desde 2026-08-12 tambem quem nao registou pode eliminar
         r = post(pag, [envio(uuid="e2", seq=320, pid="NBF(Tanheia)26-320",
-                             recorder="Cheia", accao="eliminar", values={})])
+                             recorder="Joana", accao="eliminar", values={})])
         res = r["resultados"][0]
-        ok(res["ok"] and res["accao"] == "Eliminação", f"eliminado ({res.get('accao')})")
+        ok(res["ok"], f"a Joana elimina o registo da Cheia ({res.get('erro')})")
         vazio = pag.evaluate("colunas(LIVRO.folhas['Data'], 322, 14, 26)")
         ok(all(v == "" for v in vazio), f"as celulas do levantamento ficaram vazias ({vazio})")
 
         # o Log guarda o que la estava
         n = pag.evaluate("LIVRO.folhas['Log'].getLastRow()")
-        ult = pag.evaluate("colunas(LIVRO.folhas['Log'], %d, 1, 36)" % n)
-        ok(ult[3] == "Eliminação", f"Acção = Eliminação ({ult[3]})")
+        ult = pag.evaluate("colunas(LIVRO.folhas['Log'], %d, 1, 39)" % n)
+        ok(ult[3].startswith("Elimina"), f"Accao = Eliminacao ({ult[3]})")
         ok(ult[20] == 7.5, f"o Log guardou o valor apagado ({ult[20]})")
         ok(ult[35] == "OK", f"Estado OK ({ult[35]})")
 
-        # deixa de contar como feita e volta a poder ser registada por outra pessoa
+        # deixa de contar como feita e volta a poder ser registada
         j = get(pag, {"action": "estado", "mode": "descritores"})
         ok(320 not in [f[0] for f in j["feitas"]], "deixa de contar como feita")
         r = post(pag, [envio(uuid="e3", seq=320, pid="NBF(Tanheia)26-320",
@@ -352,11 +364,80 @@ def main():
         ok(r["resultados"][0]["ok"] is False and "eliminar" in r["resultados"][0]["erro"],
            f"eliminar sem registo da erro ({r['resultados'][0].get('erro')})")
 
+        print("\n[18b] observacoes livres")
+        r = post(pag, [envio(uuid="n1", seq=330, pid="NBF(Tanheia)26-330", recorder="Cheia",
+                             notas="Partida pelo vento", values={"limboFoliar": 4})])
+        ok(r["resultados"][0]["ok"], "registo com observacao aceite", r["resultados"][0])
+        colN = pag.evaluate("procurarColunaExtra_(LIVRO.folhas['Data'], 'notasDescritores')")
+        ok(colN > 26, f"a coluna das notas foi criada no fim da folha ({colN})")
+        ok(pag.evaluate("LIVRO.folhas['Data'].getRange(332, %d).getValue()" % colN)
+           == "Partida pelo vento", "a observacao ficou na linha da planta")
+        n = pag.evaluate("LIVRO.folhas['Log'].getLastRow()")
+        ok(pag.evaluate("colunas(LIVRO.folhas['Log'], %d, 1, 39)" % n)[36] == "Partida pelo vento",
+           "e tambem no Log")
+
+        # so a observacao, sem medida nenhuma, chega para gravar
+        r = post(pag, [envio(uuid="n2", seq=331, pid="NBF(Tanheia)26-331", recorder="Cheia",
+                             notas="Nao encontrada", values={})])
+        ok(r["resultados"][0]["ok"], "uma observacao sozinha e um registo valido",
+           r["resultados"][0])
+        j = get(pag, {"action": "registo", "uuid": "n1"})
+        ok(j["registo"].get("notas") == "Partida pelo vento",
+           f"o GET registo devolve a observacao ({j['registo'].get('notas')})")
+
+        # eliminar limpa tambem a observacao, mas o Log guarda-a
+        r = post(pag, [envio(uuid="n3", seq=330, pid="NBF(Tanheia)26-330", recorder="Cheia",
+                             accao="eliminar", values={})])
+        ok(r["resultados"][0]["ok"], "eliminado", r["resultados"][0])
+        ok(pag.evaluate("LIVRO.folhas['Data'].getRange(332, %d).getValue()" % colN) == "",
+           "a observacao saiu da folha Data")
+        n = pag.evaluate("LIVRO.folhas['Log'].getLastRow()")
+        ok(pag.evaluate("colunas(LIVRO.folhas['Log'], %d, 1, 39)" % n)[36] == "Partida pelo vento",
+           "mas fica guardada no Log")
+
+        print("\n[18c] marcar uma planta como morta")
+        r = post(pag, [envio(uuid="m1", seq=340, pid="NBF(Tanheia)26-340", recorder="Cheia",
+                             accao="morta", values={})])
+        res = r["resultados"][0]
+        ok(res["ok"] and res["accao"] == "Planta morta",
+           f"aceite ({res.get('accao')}, {res.get('erro')})")
+        colE = pag.evaluate("procurarColunaExtra_(LIVRO.folhas['Data'], 'estadoPlanta')")
+        ok(pag.evaluate("LIVRO.folhas['Data'].getRange(342, %d).getValue()" % colE) == "Dead",
+           "escreveu Dead na coluna do estado da planta")
+        j = get(pag, {"action": "estado", "mode": "descritores"})
+        ok(j.get("mortas") == [340], f"o estado devolve a lista de mortas ({j.get('mortas')})")
+        ok(340 not in [f[0] for f in j["feitas"]], "uma planta morta nao conta como registada")
+        j2 = get(pag, {"action": "estado", "mode": "crescimento", "ronda": "11 month (20261111)"})
+        ok(j2.get("mortas") == [340], "a marca vale para os dois levantamentos")
+
+        r = post(pag, [envio(uuid="m2", seq=340, pid="NBF(Tanheia)26-340", recorder="Joana",
+                             accao="viva", values={})])
+        ok(r["resultados"][0]["ok"], "desmarcar tambem passa", r["resultados"][0])
+        ok(pag.evaluate("LIVRO.folhas['Data'].getRange(342, %d).getValue()" % colE) == "",
+           "a celula volta a ficar vazia")
+        ok(get(pag, {"action": "estado", "mode": "descritores"}).get("mortas") == [],
+           "e sai da lista de mortas")
+
+        print("\n[18d] as colunas novas nao se confundem com rondas")
+        j = get(pag, {"action": "estado", "mode": "descritores"})
+        ok(sorted(j["rondas"]) == ["11 month (20261111)", "5 month after planting (20260511)"],
+           f"'Notes'/'Plant status' nao aparecem como rondas ({j['rondas']})")
+        antes_col = pag.evaluate("LIVRO.folhas['Data'].getLastColumn()")
+        r = post(pag, [envio(uuid="z1", seq=350, pid="NBF(Tanheia)26-350", mode="crescimento",
+                             ronda="11 month (20261111)", values={"alturaPlanta": 1.1})])
+        ok(r["resultados"][0]["ok"], "a ronda existente continua a ser reaproveitada",
+           r["resultados"][0])
+        ok(pag.evaluate("LIVRO.folhas['Data'].getLastColumn()") == antes_col,
+           "e nao se criou nenhum bloco por engano")
+        ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 352, 27, 33)")[0] == 1.1,
+           "escreveu no bloco da ronda certa")
+
         print("\n[19] funcao diagnostico()")
         d = pag.evaluate("diagnostico()")
         ok("doGet definido     : true" in d, "confirma que o doGet existe", d)
-        ok("colunas do Log     : 36" in d, "conta as colunas do Log", d)
-        ok("tem a correccao do dono : true" in d, "deteta se a versao e a actual", d)
+        ok("colunas do Log     : 39" in d, "conta as colunas do Log", d)
+        ok("toda a gente corrige/elimina : true" in d, "deteta se a versao e a actual", d)
+        ok("17 lotes, 415 plantas (OK)" in d, "os lotes batem certo com o total", d)
         ok("Aba Data           : 417 linhas" in d, "chega a folha Data", d)
         ok('"ok":true' in d, "o doGet responde de verdade", d)
         print("  --- saida ---")

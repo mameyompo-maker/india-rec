@@ -30,7 +30,18 @@ var TOTAL_PLANTAS = 415;
  * nao se distingue "colei mal" de "implantei a versao antiga".
  * Subir sempre que o Codigo.gs for alterado.
  */
-var VERSAO_CODIGO = '2026-08-10a';
+var VERSAO_CODIGO = '2026-08-12a';
+
+/**
+ * COMPATIBILIDADE (2026-08-12) — LER ANTES DE MEXER.
+ *
+ * Ha telemoveis no campo com a versao anterior da aplicacao e com registos
+ * ainda por enviar na fila. Esses envios chegam aqui SEM os campos novos
+ * (notas, accao 'morta'/'viva', refNo). Tudo o que e novo tem de ser
+ * OPCIONAL: nenhum campo novo pode ser obrigatorio e nenhuma coluna antiga
+ * pode mudar de sitio. As colunas novas entram sempre no FIM (na folha Log e
+ * a direita de tudo na folha Data), para as linhas ja gravadas nao deslizarem.
+ */
 
 function prop_(nome, porOmissao) {
   var v = PropertiesService.getScriptProperties().getProperty(nome);
@@ -86,27 +97,106 @@ var CAMPOS_DESCRITORES = [
 var COL_PRIMEIRO_BLOCO_RONDA = 7;
 
 /**
- * A linha 1 da folha Data tem cabecalhos de tres tipos: identificacao (A..F),
- * blocos de ronda (G..L e depois tudo o que for acrescentado a direita) e o bloco
- * dos descritores (M..Y). So os do meio sao nomes de ronda — sem este filtro,
- * "Growth habit" e "Seed width (cm)" apareciam na lista de rondas.
+ * Lotes de semente pela ordem em que aparecem na folha Data. O "n.º de
+ * referencia" que o campo usa desde 2026-08-12 e a POSICAO nesta lista: o
+ * primeiro lote e o 1 e o ultimo e o 17. Note-se que nao ha bag08, por isso
+ * o 'India #bag09' e o n.º 8 — e mesmo assim que foi pedido.
+ *
+ * As contagens tem de bater certo com docs/plants.json (415 no total).
  */
-function ehColunaDeRonda_(c) {
+var LOTES = [
+  { source: 'India #bag01', count: 30 }, { source: 'India #bag02', count: 25 },
+  { source: 'India #bag03', count: 25 }, { source: 'India #bag04', count: 35 },
+  { source: 'India #bag05', count: 15 }, { source: 'India #bag06', count: 25 },
+  { source: 'India #bag07', count: 25 }, { source: 'India #bag09', count: 20 },
+  { source: 'India #bag10', count: 25 }, { source: 'India #bag11', count: 15 },
+  { source: 'India #bag12', count: 25 }, { source: 'India #bag13', count: 35 },
+  { source: 'India #bag14', count: 25 }, { source: 'India #bag15', count: 35 },
+  { source: 'India#S-2A', count: 20 },   { source: 'India#S-2B', count: 15 },
+  { source: 'India#S-4', count: 20 }
+];
+
+/**
+ * N.º de referencia (1..17) e n.º dentro do lote, a partir do n.º da planta.
+ * Deriva-se do seq e nao do texto enviado pelo telemovel, para os envios
+ * antigos — que nao trazem nada disto — ficarem tambem com o n.º certo.
+ */
+function refDoSeq_(seq) {
+  var n = Number(seq);
+  if (!(n >= 1)) return null;
+  var acc = 0;
+  for (var i = 0; i < LOTES.length; i++) {
+    if (n <= acc + LOTES[i].count) {
+      return { ref: i + 1, source: LOTES[i].source, noLote: n - acc };
+    }
+    acc += LOTES[i].count;
+  }
+  return null;
+}
+
+/**
+ * Colunas acrescentadas em 2026-08-12. Vivem SEMPRE no fim da folha Data e sao
+ * encontradas pelo nome do cabecalho, nunca por uma letra fixa — assim nada do
+ * que ja la esta se mexe e um bloco de ronda novo pode aparecer depois delas.
+ */
+var COL_EXTRA_DEF = [
+  { chave: 'notasCrescimento', rotulo: 'Notes (growth)' },
+  { chave: 'notasDescritores', rotulo: 'Notes (descriptors)' },
+  { chave: 'estadoPlanta',     rotulo: 'Plant status' }
+];
+
+/** O que fica gravado em "Plant status" quando a planta esta morta. */
+var VALOR_MORTA = 'Dead';
+
+function rotuloExtra_(chave) {
+  for (var i = 0; i < COL_EXTRA_DEF.length; i++) {
+    if (COL_EXTRA_DEF[i].chave === chave) return COL_EXTRA_DEF[i].rotulo;
+  }
+  return '';
+}
+
+function ehRotuloExtra_(texto) {
+  var s = String(texto == null ? '' : texto).trim();
+  if (!s) return false;
+  for (var i = 0; i < COL_EXTRA_DEF.length; i++) {
+    if (COL_EXTRA_DEF[i].rotulo === s) return true;
+  }
+  return false;
+}
+
+/**
+ * A linha 1 da folha Data tem cabecalhos de quatro tipos: identificacao (A..F),
+ * blocos de ronda (G..M e tudo o que for acrescentado a direita), o bloco dos
+ * descritores (N..Z) e as colunas extra. So os do segundo tipo sao nomes de
+ * ronda — sem este filtro, "Growth habit" ou "Notes (growth)" apareciam na
+ * lista de rondas.
+ */
+function ehColunaDeRonda_(c, texto) {
   var pri = CAMPOS_DESCRITORES[0].col;
   var ult = CAMPOS_DESCRITORES[CAMPOS_DESCRITORES.length - 1].col;
-  return c >= COL_PRIMEIRO_BLOCO_RONDA && !(c >= pri && c <= ult);
+  if (c < COL_PRIMEIRO_BLOCO_RONDA) return false;
+  if (c >= pri && c <= ult) return false;
+  return !ehRotuloExtra_(texto);
 }
 
 var TODOS_CAMPOS = CAMPOS_CRESCIMENTO.concat(CAMPOS_DESCRITORES);
 
-/** Cabecalho da folha Log (A..AI = 35 colunas). A ordem manda em montarLinhaLog_(). */
+/**
+ * Cabecalho da folha Log (A..AM = 39 colunas). A ordem manda em montarLinhaLog_().
+ *
+ * ⚠ As tres ultimas colunas entraram em 2026-08-12. Foram postas DEPOIS de
+ * "Estado" — e nao ao pe dos valores, que era onde ficavam melhor — porque a
+ * folha ja tem linhas gravadas: acrescentar no meio mudava o significado de
+ * tudo o que estava a direita nessas linhas. Colunas novas so no fim.
+ */
 var CABECALHO_LOG = [
   'Data/hora (aparelho)', 'Data/hora (servidor)', 'Registado por', 'Acção',
   'Levantamento', 'Ronda', 'Plant ID', 'Fileira', 'N.º na fileira', 'N.º na folha',
   'Lote', 'Linha em Data'
 ].concat(
   TODOS_CAMPOS.map(function (c) { return c.rotulo; }),
-  ['ID do envio', 'Substitui o envio', 'Aparelho', 'Estado']
+  ['ID do envio', 'Substitui o envio', 'Aparelho', 'Estado',
+   'Notas', 'Estado da planta', 'N.º de referência']
 );
 
 // indices 1-based dentro da folha Log
@@ -116,14 +206,22 @@ var COL_LEVANTAMENTO = 5;
 var COL_RONDA = 6;
 var COL_PID = 7;
 var COL_PRIMEIRO_CAMPO = 13;                       // M
-var COL_UUID = 12 + TODOS_CAMPOS.length + 1;       // AF = 32
-var COL_SUBSTITUI = COL_UUID + 1;                  // AG
-var COL_ESTADO = COL_UUID + 3;                     // AI
+var COL_UUID = 12 + TODOS_CAMPOS.length + 1;       // AG = 33
+var COL_SUBSTITUI = COL_UUID + 1;                  // AH = 34
+var COL_ESTADO = COL_UUID + 3;                     // AJ = 36
+var COL_NOTAS = COL_ESTADO + 1;                    // AK = 37
+var COL_ESTADO_PLANTA = COL_ESTADO + 2;            // AL = 38
+var COL_REF = COL_ESTADO + 3;                      // AM = 39
 
 var ROTULO_MODO = { crescimento: 'Crescimento (G-M)', descritores: 'Descritores (N-Z)' };
 
 /** Acção gravada no Log quando alguém anula um registo. */
 var ACCAO_ELIMINAR = 'Eliminação';
+
+/* Marcas de planta morta/viva. Nao sao registos de levantamento: ficam no Log e
+ * na coluna "Plant status" da Data, mas nao entram no indice de registos. */
+var ACCAO_MORTA = 'Planta morta';
+var ACCAO_VIVA = 'Planta viva';
 
 /**
  * Le o modo a partir do texto gravado na coluna Levantamento do Log.
@@ -155,6 +253,12 @@ function agora_() { return Utilities.formatDate(new Date(), FUSO, 'yyyy-MM-dd HH
 
 function camposDoModo_(modo) {
   return modo === 'crescimento' ? CAMPOS_CRESCIMENTO : CAMPOS_DESCRITORES;
+}
+
+/** N.º da planta a partir do Plant ID ('NBF(Tanheia)26-007' -> 7). */
+function seqDoPid_(pid) {
+  var m = /-(\d{3})$/.exec(String(pid || ''));
+  return m ? parseInt(m[1], 10) : 0;
 }
 
 /** Chave que identifica um registo: mesmo levantamento + ronda + planta. */
@@ -207,7 +311,8 @@ function colunaBlocoRonda_(folha, ronda) {
   var linha1 = folha.getRange(1, 1, 1, ultima).getValues()[0];
 
   for (var i = 0; i < linha1.length; i++) {
-    if (!ehColunaDeRonda_(i + 1)) continue;   // nunca escrever por cima dos descritores
+    // nunca escrever por cima dos descritores nem das colunas extra
+    if (!ehColunaDeRonda_(i + 1, linha1[i])) continue;
     if (String(linha1[i]).trim() !== '' && String(linha1[i]).trim() === ronda) return i + 1;
   }
 
@@ -226,6 +331,57 @@ function colunaBlocoRonda_(folha, ronda) {
   ]);
   folha.getRange(1, inicio, 2, largura).setFontWeight('bold');
   return inicio;
+}
+
+// -------------------------------------------------------- colunas extra (Data)
+
+/* Um lote de 25 envios procuraria a mesma coluna 25 vezes. A cache dura o que
+ * durar o pedido — cada execucao do Apps Script comeca do zero. */
+var CACHE_EXTRA = {};
+
+/**
+ * Procura uma das colunas extra pelo cabecalho. Devolve 0 se ainda nao existir.
+ * Le a linha 1 e a linha 2 porque a folha tem cabecalho em dois andares.
+ */
+function procurarColunaExtra_(folha, chave) {
+  if (CACHE_EXTRA[chave]) return CACHE_EXTRA[chave];
+
+  var rotulo = rotuloExtra_(chave);
+  if (!rotulo) return 0;
+  var ultima = folha.getLastColumn();
+  if (ultima < 1) return 0;
+  var duas = folha.getRange(1, 1, 2, ultima).getValues();
+  for (var i = 0; i < ultima; i++) {
+    if (String(duas[0][i]).trim() === rotulo || String(duas[1][i]).trim() === rotulo) {
+      CACHE_EXTRA[chave] = i + 1;
+      return i + 1;
+    }
+  }
+  return 0;
+}
+
+/**
+ * O mesmo, mas cria a coluna no fim da folha se ainda nao existir. So se chama
+ * a escrever (doPost): um GET nunca deve alterar a folha.
+ */
+function colunaExtra_(folha, chave) {
+  var ja = procurarColunaExtra_(folha, chave);
+  if (ja) return ja;
+
+  var rotulo = rotuloExtra_(chave);
+  var col = folha.getLastColumn() + 1;
+  if (folha.getMaxColumns() < col) {
+    folha.insertColumnsAfter(folha.getMaxColumns(), col - folha.getMaxColumns());
+  }
+  // o mesmo texto nas duas linhas de cabecalho: assim le-se de qualquer uma
+  folha.getRange(1, col, 2, 1).setValues([[rotulo], [rotulo]]).setFontWeight('bold');
+  CACHE_EXTRA[chave] = col;
+  return col;
+}
+
+/** Chave da coluna de notas do levantamento indicado. */
+function chaveNotas_(modo) {
+  return modo === 'crescimento' ? 'notasCrescimento' : 'notasDescritores';
 }
 
 // ---------------------------------------------------------------- folha Log
@@ -273,11 +429,17 @@ function lerIndice_(log) {
 
     var modo = modoDoRotulo_(levant);
     var k = chave_(modo, ronda, pid);
+    var acc = String(meta[i][1]).trim();
+
+    /* Marcar a planta como morta (ou desmarcar) nao e um registo de medicao:
+     * fica no Log e na coluna "Plant status", mas nao entra no indice nem
+     * mexe em quem e o dono do registo. */
+    if (acc === ACCAO_MORTA || acc === ACCAO_VIVA) continue;
 
     /* Uma eliminacao apaga o registo do indice: a planta volta a contar como
      * por fazer e deixa de aparecer no historico. Se depois alguem a registar
      * outra vez, e essa pessoa que passa a ser dona. */
-    if (String(meta[i][1]).trim() === ACCAO_ELIMINAR) { delete idx.porChave[k]; continue; }
+    if (acc === ACCAO_ELIMINAR) { delete idx.porChave[k]; continue; }
 
     var ja = idx.porChave[k];
 
@@ -296,6 +458,7 @@ function lerIndice_(log) {
 // ---------------------------------------------------------------- doPost
 
 function doPost(e) {
+  CACHE_EXTRA = {};
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(30000);
@@ -315,6 +478,10 @@ function doPost(e) {
       return jsonOut_({ ok: false, erro: 'Não autorizado.', versao: VERSAO_CODIGO });
     }
 
+    /* Desde 2026-08-12 o modo administrador ja nao decide nada na escrita —
+     * toda a gente pode corrigir e eliminar. Continua a ser calculado e
+     * passado adiante para nao partir quem o use e para poder voltar a
+     * mandar aqui se um dia for preciso. */
     var admin = pedido.adminPassword && pedido.adminPassword === getAdminPassword();
     var entradas = pedido.entries || [];
     if (!entradas.length) return jsonOut_({ ok: true, resultados: [] });
@@ -367,30 +534,56 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
     }
     var campos = camposDoModo_(modo);
     var ronda = String(ent.ronda || '').trim();
-    if (modo === 'crescimento' && !ronda) throw new Error('Falta a ronda do levantamento.');
 
-    // quem e o dono do registo actual desta planta?
-    var eliminar = String(ent.accao || '') === 'eliminar';
+    var pedida = String(ent.accao || '');
+    var eliminar = pedida === 'eliminar';
+    var morta = pedida === 'morta';
+    var viva = pedida === 'viva';
+
+    // a ronda so faz falta para escrever no bloco do crescimento
+    if (modo === 'crescimento' && !ronda && !morta && !viva) {
+      throw new Error('Falta a ronda do levantamento.');
+    }
+
+    /* ------------------------------------------------ planta morta / viva --
+     * Marca da PLANTA, nao do levantamento: escreve-se numa coluna propria e
+     * nao conta como registo (nao entra no indice, nao muda donos). */
+    if (morta || viva) {
+      var colEstado = colunaExtra_(dados, 'estadoPlanta');
+      var valorEstado = morta ? VALOR_MORTA : '';
+      dados.getRange(linha, colEstado).setValue(valorEstado);
+
+      linhasLog.push(montarLinhaLog_(ent, uuid, linha,
+                                     morta ? ACCAO_MORTA : ACCAO_VIVA, 'OK', valorEstado));
+      idx.uuids[uuid] = true;
+      return {
+        ok: true, uuid: uuid, linha: linha, accao: morta ? ACCAO_MORTA : ACCAO_VIVA,
+        celulas: [letraColuna_(colEstado) + linha]
+      };
+    }
+
     var anterior = idx.porChave[chave_(modo, ronda, pidFolha)];
     var accao = eliminar ? ACCAO_ELIMINAR : (anterior ? 'Correcção' : 'Registo');
     if (eliminar && !anterior) {
       throw new Error('Não há nenhum registo desta planta para eliminar.');
     }
-    if (anterior && !admin) {
-      var meu = String(ent.recorder || '').trim();
-      if (anterior.dono && anterior.dono !== meu) {
-        throw new Error('Esta planta foi registada por ' + anterior.dono +
-                        '. Só essa pessoa (ou um administrador) a pode corrigir.');
-      }
-    }
 
-    // As colunas de cada levantamento sao contiguas (F..K ou L..X), por isso
+    /* PERMISSOES (2026-08-12) — a partir daqui NAO se recusa nada por causa de
+     * quem registou. Ate esta data so o dono (ou um administrador) podia
+     * corrigir ou eliminar, e no campo isso deixava as pessoas sem forma de
+     * desfazer um engano proprio quando trocavam de nome ou de telemovel.
+     * Decisao do Kaz-san: toda a gente pode corrigir e eliminar. O rasto de
+     * quem fez o que continua todo na folha Log. */
+
+    // As colunas de cada levantamento sao contiguas (G..M ou N..Z), por isso
     // trata-se o bloco todo de uma vez: uma leitura e uma escrita por planta,
     // em vez de ate 19 chamadas soltas. Com lotes de 25 envios a diferenca e
     // entre umas centenas de chamadas e umas dezenas.
     var colInicio = (modo === 'crescimento') ? colunaBlocoRonda_(dados, ronda) : campos[0].col;
     var bloco = dados.getRange(linha, colInicio, 1, campos.length);
     var actuais = bloco.getValues()[0];
+
+    var notas = String(ent.notas === null || ent.notas === undefined ? '' : ent.notas).trim();
 
     if (eliminar) {
       /* Guarda no Log o que estava la antes de limpar. Sem isto, uma eliminacao
@@ -405,8 +598,19 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
       }
       bloco.setValues([actuais]);
 
+      /* A coluna das notas so existe se alguem ja tiver escrito alguma:
+       * eliminar nao e motivo para a criar. */
+      var colNotasEl = procurarColunaExtra_(dados, chaveNotas_(modo));
+      var notasAntigas = colNotasEl
+        ? String(dados.getRange(linha, colNotasEl).getValue() || '').trim() : '';
+      if (notasAntigas) {
+        dados.getRange(linha, colNotasEl).setValue('');
+        limpas.push(colNotasEl);
+      }
+
       ent.values = antigos;
-      linhasLog.push(montarLinhaLog_(ent, uuid, linha, ACCAO_ELIMINAR, 'OK'));
+      ent.notas = notasAntigas;
+      linhasLog.push(montarLinhaLog_(ent, uuid, linha, ACCAO_ELIMINAR, 'OK', ''));
       idx.uuids[uuid] = true;
       delete idx.porChave[chave_(modo, ronda, pidFolha)];
 
@@ -426,11 +630,17 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
         escritas.push(colInicio + i);
       }
     }
-    if (!escritas.length) throw new Error('Nenhum valor preenchido.');
+    // uma observacao sozinha ja e motivo suficiente para gravar o registo
+    if (!escritas.length && !notas) throw new Error('Nenhum valor preenchido.');
 
     bloco.setValues([actuais]);
+    if (notas) {
+      var colNotas = colunaExtra_(dados, chaveNotas_(modo));
+      dados.getRange(linha, colNotas).setValue(notas);
+      escritas.push(colNotas);
+    }
 
-    linhasLog.push(montarLinhaLog_(ent, uuid, linha, accao, 'OK'));
+    linhasLog.push(montarLinhaLog_(ent, uuid, linha, accao, 'OK', ''));
     idx.uuids[uuid] = true;
     var quem = String(ent.recorder || '').trim();
     idx.porChave[chave_(modo, ronda, pidFolha)] = {
@@ -444,14 +654,19 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
     };
   } catch (err) {
     var msg = String(err && err.message || err);
-    var tentada = (String(ent.accao || '') === 'eliminar') ? ACCAO_ELIMINAR : 'Registo';
-    linhasLog.push(montarLinhaLog_(ent, uuid, '', tentada, 'ERRO: ' + msg));
+    var pedidaErro = String(ent.accao || '');
+    var tentada = 'Registo';
+    if (pedidaErro === 'eliminar') tentada = ACCAO_ELIMINAR;
+    else if (pedidaErro === 'morta') tentada = ACCAO_MORTA;
+    else if (pedidaErro === 'viva') tentada = ACCAO_VIVA;
+    linhasLog.push(montarLinhaLog_(ent, uuid, '', tentada, 'ERRO: ' + msg, ''));
     return { ok: false, uuid: uuid, erro: msg };
   }
 }
 
-function montarLinhaLog_(ent, uuid, linhaDados, accao, estado) {
+function montarLinhaLog_(ent, uuid, linhaDados, accao, estado, estadoPlanta) {
   var v = ent.values || {};
+  var ref = refDoSeq_(ent.seq);
   var linha = [
     ent.tsLocal || '',
     agora_(),
@@ -477,13 +692,20 @@ function montarLinhaLog_(ent, uuid, linhaDados, accao, estado) {
     linha.push(saida);
   }
 
-  linha.push(uuid, ent.substitui || '', ent.device || '', estado);
+  /* O n.º de referencia sai do n.º da planta e nao do que o telemovel manda:
+   * assim os envios antigos, feitos antes de isto existir, ficam na mesma com
+   * o n.º certo na folha. */
+  linha.push(uuid, ent.substitui || '', ent.device || '', estado,
+             String(ent.notas === null || ent.notas === undefined ? '' : ent.notas),
+             estadoPlanta || '',
+             ref ? ref.ref : '');
   return linha;
 }
 
 // ---------------------------------------------------------------- doGet
 
 function doGet(e) {
+  CACHE_EXTRA = {};
   var p = (e && e.parameter) || {};
   if (!getToken() || p.token !== getToken()) {
     return jsonOut_({ ok: false, erro: 'Não autorizado.', versao: VERSAO_CODIGO });
@@ -527,12 +749,31 @@ function estado_(ss, log, p) {
   var linha1 = dados.getRange(1, 1, 1, dados.getLastColumn()).getValues()[0];
   var rondas = [];
   for (var i = COL_PRIMEIRO_BLOCO_RONDA - 1; i < linha1.length; i++) {
-    if (!ehColunaDeRonda_(i + 1)) continue;
+    if (!ehColunaDeRonda_(i + 1, linha1[i])) continue;
     var s = String(linha1[i]).trim();
     if (s) rondas.push(s);
   }
 
-  return { ok: true, hora: agora_(), mode: modo, ronda: ronda, feitas: feitas, rondas: rondas };
+  return {
+    ok: true, hora: agora_(), mode: modo, ronda: ronda,
+    feitas: feitas, rondas: rondas, mortas: mortas_(dados)
+  };
+}
+
+/**
+ * N.os das plantas marcadas como mortas. E uma marca da planta, nao do
+ * levantamento, por isso vale para os dois. Nunca cria a coluna: se ainda
+ * ninguem marcou nenhuma planta, a coluna nao existe e a lista vem vazia.
+ */
+function mortas_(dados) {
+  var col = procurarColunaExtra_(dados, 'estadoPlanta');
+  if (!col) return [];
+  var v = dados.getRange(LINHA_PRIMEIRA_PLANTA, col, TOTAL_PLANTAS, 1).getValues();
+  var out = [];
+  for (var i = 0; i < v.length; i++) {
+    if (String(v[i][0]).trim() !== '') out.push(i + 1);
+  }
+  return out;
 }
 
 /** Lista compacta dos registos (o mais recente de cada planta), sem os valores. */
@@ -548,16 +789,24 @@ function historico_(log, p) {
   entradas = entradas.slice(0, limite);
 
   var registos = entradas.map(function (e) {
-    var meta = log.getRange(e.linha, 1, 1, COL_PID).getValues()[0];
+    // ate a coluna 12 para trazer tambem fileira/lote — o ecra dos registos
+    // mostra o n.º de referencia, nao so o Plant ID
+    var meta = log.getRange(e.linha, 1, 1, 12).getValues()[0];
+    var ref = refDoSeq_(seqDoPid_(e.pid));
     return {
       uuid: e.uuid,
       ts: String(meta[0]),
-      recorder: e.dono,                          // quem manda nas permissoes
+      recorder: e.dono,                          // quem fez o registo original
       ultimo: e.recorder,                        // quem mexeu por ultimo
       accao: String(meta[COL_ACCAO - 1]),
       mode: e.modo,
       ronda: e.ronda,
-      pid: e.pid
+      pid: e.pid,
+      row: String(meta[7]),
+      noFileira: meta[8],
+      noLote: ref ? ref.noLote : meta[9],
+      lote: String(meta[10]),
+      ref: ref ? ref.ref : ''
     };
   });
 
@@ -577,14 +826,13 @@ function registo_(log, p) {
     if (String(ids[i][0]).trim() !== uuid) continue;
 
     var l = i + 2;
-    var meta = log.getRange(l, 1, 1, COL_PID).getValues()[0];
-    var brutos = log.getRange(l, COL_PRIMEIRO_CAMPO, 1, TODOS_CAMPOS.length).getValues()[0];
-    var levant = String(meta[COL_LEVANTAMENTO - 1]).trim();
+    var tudo = log.getRange(l, 1, 1, CABECALHO_LOG.length).getValues()[0];
+    var levant = String(tudo[COL_LEVANTAMENTO - 1]).trim();
     var modo = modoDoRotulo_(levant);
 
     var values = {};
     for (var j = 0; j < TODOS_CAMPOS.length; j++) {
-      var v = desnormalizar_(TODOS_CAMPOS[j], brutos[j]);
+      var v = desnormalizar_(TODOS_CAMPOS[j], tudo[COL_PRIMEIRO_CAMPO - 1 + j]);
       if (v !== undefined) values[TODOS_CAMPOS[j].chave] = v;
     }
 
@@ -592,11 +840,12 @@ function registo_(log, p) {
       ok: true,
       registo: {
         uuid: uuid,
-        ts: String(meta[0]),
-        recorder: String(meta[COL_RECORDER - 1]),
+        ts: String(tudo[0]),
+        recorder: String(tudo[COL_RECORDER - 1]),
         mode: modo,
-        ronda: String(meta[COL_RONDA - 1]),
-        pid: String(meta[COL_PID - 1]),
+        ronda: String(tudo[COL_RONDA - 1]),
+        pid: String(tudo[COL_PID - 1]),
+        notas: String(tudo[COL_NOTAS - 1] || ''),
         values: values
       }
     };
@@ -618,8 +867,14 @@ function diagnostico() {
   l.push('doGet definido     : ' + (typeof doGet === 'function'));
   l.push('doPost definido    : ' + (typeof doPost === 'function'));
   l.push('colunas do Log     : ' + CABECALHO_LOG.length +
-         ' (12 + ' + TODOS_CAMPOS.length + ' campos + 4)');
-  l.push('tem a correccao do dono : ' + (String(processarEntrada_).indexOf('anterior.dono') >= 0));
+         ' (12 + ' + TODOS_CAMPOS.length + ' campos + 7)');
+  l.push('toda a gente corrige/elimina : ' +
+         (String(processarEntrada_).indexOf('Só essa pessoa') < 0));
+
+  var somaLotes = 0;
+  for (var i = 0; i < LOTES.length; i++) somaLotes += LOTES[i].count;
+  l.push('lotes / n.os de ref: ' + LOTES.length + ' lotes, ' + somaLotes +
+         ' plantas ' + (somaLotes === TOTAL_PLANTAS ? '(OK)' : '(NAO BATE CERTO!)'));
 
   var props = PropertiesService.getScriptProperties().getProperties();
   l.push('TOKEN definido     : ' + (props.TOKEN ? 'sim' : 'NAO — fica "' + getToken() + '"'));

@@ -13,6 +13,7 @@ Precisa do servidor mock a correr:
 """
 
 import json
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -21,6 +22,14 @@ from playwright.sync_api import sync_playwright
 BASE = "http://127.0.0.1:8765"
 TOKEN = "TESTE-123456"
 FALHAS = []
+
+# lotes pela ordem da folha — o n.o de referencia e a posicao nesta lista
+LOTES = [("India #bag01", 30), ("India #bag02", 25), ("India #bag03", 25),
+         ("India #bag04", 35), ("India #bag05", 15), ("India #bag06", 25),
+         ("India #bag07", 25), ("India #bag09", 20), ("India #bag10", 25),
+         ("India #bag11", 15), ("India #bag12", 25), ("India #bag13", 35),
+         ("India #bag14", 25), ("India #bag15", 35), ("India#S-2A", 20),
+         ("India#S-2B", 15), ("India#S-4", 20)]
 
 
 def ok(cond, msg):
@@ -47,10 +56,17 @@ def entrar(pag, nome):
     pag.wait_for_selector("#ecraLevantamento:not([hidden])")
 
 
-def escolher_planta(pag, fileira, numero):
-    pag.locator(f'#grelhaFileiras button:has-text("{fileira}")').first.click()
+def escolher_seq(pag, seq):
+    """Escolhe a planta pelo n.o de referencia e pelo numero dentro do lote."""
+    acc = 0
+    for nome, n in LOTES:
+        if seq <= acc + n:
+            curto, no = re.sub(r"^India\s*#\s*", "", nome), seq - acc
+            break
+        acc += n
+    pag.locator(f'#grelhaFileiras button:has-text("{curto}")').first.click()
     pag.locator('#teclado button[data-tecla="limpar"]').click()
-    for d in str(numero):
+    for d in str(no):
         pag.locator(f'#teclado button[data-tecla="{d}"]').click()
 
 
@@ -62,10 +78,10 @@ def guardar(pag):
     pag.wait_for_timeout(900)
 
 
-def ir_ao_formulario(pag, fileira, numero):
+def ir_ao_formulario(pag, seq):
     pag.click('.cartao[data-modo="descritores"]')
     pag.wait_for_selector("#ecraPlanta:not([hidden])")
-    escolher_planta(pag, fileira, numero)
+    escolher_seq(pag, seq)
     pag.click("#btnPlanta")
     pag.wait_for_selector("#ecraFormulario:not([hidden])")
 
@@ -120,7 +136,7 @@ def main():
         ok(pag.inner_text("#ola") == "Olá, Cheia.", "saudacao em portugues")
 
         print("\n[5] os botoes desaparecem durante o trabalho")
-        ir_ao_formulario(pag, "r02", 10)
+        ir_ao_formulario(pag, 45)
         ok(pag.locator("#idiomas").is_hidden(), "escondidos no formulario")
 
         print("\n[6] portugues: virgula e ponto dao o mesmo numero")
@@ -133,7 +149,7 @@ def main():
         ok(reg[0]["values"]["peciolo"] == 3.25, "3.25 -> 3.25 (ponto aceite em portugues)")
 
         print("\n[7] o ecra mostra o sinal decimal da lingua")
-        escolher_planta(pag, "r02", 10)
+        escolher_seq(pag, 45)
         pag.click("#btnPlanta")
         pag.wait_for_selector("#ecraFormulario:not([hidden])")
         ok(pag.input_value("#campo_limboFoliar") == "12,5", "portugues mostra 12,5")
@@ -141,7 +157,7 @@ def main():
         pag.locator('.ecra:not([hidden]) [data-voltar]').first.click()
         pag.wait_for_selector("#ecraLevantamento:not([hidden])")
         idioma(pag, "EN")
-        ir_ao_formulario(pag, "r02", 10)
+        ir_ao_formulario(pag, 45)
         ok(pag.input_value("#campo_limboFoliar") == "12.5", "ingles mostra 12.5")
         ok(pag.inner_text('label[for="campo_limboFoliar"]').startswith("Leaf blade"),
            "as etiquetas dos campos tambem traduzem")
@@ -157,7 +173,7 @@ def main():
         pag.locator('.ecra:not([hidden]) [data-voltar]').first.click()
         pag.wait_for_selector("#ecraLevantamento:not([hidden])")
         idioma(pag, "日本語")
-        ir_ao_formulario(pag, "r03", 7)
+        ir_ao_formulario(pag, 77)
         ok(pag.inner_text('label[for="campo_limboFoliar"]').startswith("葉身"),
            "etiquetas em japones")
         pag.fill("#campo_limboFoliar", "8,5")
@@ -170,7 +186,7 @@ def main():
            f"a chave enviada continua em ingles ({reg[2]['values'].get('habitoCrescimento')})")
 
         print("\n[10] numeros de largura total (teclado japones)")
-        escolher_planta(pag, "r03", 8)
+        escolher_seq(pag, 78)
         pag.click("#btnPlanta")
         pag.wait_for_selector("#ecraFormulario:not([hidden])")
         pag.fill("#campo_limboFoliar", "１，５")

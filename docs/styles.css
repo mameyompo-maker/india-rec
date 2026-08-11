@@ -187,6 +187,32 @@ input.invalido { border-color: var(--erro); }
   padding: 8px 0;
 }
 
+/* Marcar uma planta como morta é o caso raro: encosta-se à direita e fica
+   pequeno, para não competir com o que se faz a cada planta. */
+.cantoDireito { display: flex; justify-content: flex-end; }
+.ligacao.discreta {
+  margin-top: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: #8b9280;
+}
+.ligacao.discreta.activo { color: var(--aviso); font-weight: 700; }
+
+textarea {
+  width: 100%;
+  min-height: 84px;
+  padding: 12px 14px;
+  font-size: 17px;
+  font-family: inherit;
+  line-height: 1.4;
+  color: var(--txt);
+  background: var(--painel);
+  border: 2px solid var(--linha);
+  border-radius: var(--r);
+  resize: vertical;
+}
+textarea:focus { outline: none; border-color: var(--acento); }
+
 /* --------------------------------------------------- escolha de levantamento */
 
 .cartao {
@@ -207,14 +233,16 @@ input.invalido { border-color: var(--erro); }
 
 /* --------------------------------------------------------- escolha da planta */
 
+/* 17 lotes (n.os de referência) em quatro colunas: cabe o nome do saco por
+   baixo do número sem ficar espremido num telemóvel de 390 px. */
 .grelhaFileiras {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 9px;
 }
 .grelhaFileiras button {
-  min-height: 62px;
-  font-size: 17px;
+  min-height: 66px;
+  font-size: 21px;
   font-weight: 700;
   color: var(--txt);
   background: var(--painel);
@@ -460,10 +488,12 @@ dialog ul { margin: 10px 0; padding-left: 20px; color: var(--aviso); font-size: 
   background: var(--painel);
   border-radius: 10px;
 }
-.linhaFileira .nome { font-weight: 700; width: 46px; flex: none; }
+.linhaFileira .nome { font-weight: 700; width: 26px; flex: none; text-align: right; }
+.linhaFileira .lote { font-size: 12px; color: var(--txt2); width: 92px; flex: none; }
 .linhaFileira .minibarra { flex: 1; margin: 0; }
-.linhaFileira .cont { font-size: 13px; color: var(--txt2); width: 62px; text-align: right; flex: none; }
-.linhaFileira.completa .nome::after { content: " ✓"; color: var(--acento); }
+.linhaFileira .cont { font-size: 13px; color: var(--txt2); width: 74px; text-align: right; flex: none; }
+.linhaFileira .cont small { color: var(--aviso); }
+.linhaFileira.completa .nome::after { content: "✓"; color: var(--acento); }
 
 .grelhaFileiras button .feito {
   display: block;

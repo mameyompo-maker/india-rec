@@ -5,7 +5,9 @@ Reproduz a logica do Codigo.gs que interessa testar:
   - token obrigatorio; ADMIN_PASSWORD separado
   - deduplicacao por uuid
   - so escreve campos preenchidos
-  - so o dono (ou um admin) corrige um registo ja existente
+  - qualquer pessoa corrige e elimina (desde 2026-08-12)
+  - marcas de planta morta/viva, que nao sao registos
+  - observacoes livres (notas)
   - GET action=estado / historico / registo / admin
 """
 
@@ -31,7 +33,26 @@ BASE_CRESC = 7   # coluna G
 BASE_DESCR = 14  # coluna N
 ROTULO = {"crescimento": "Crescimento (G-M)", "descritores": "Descritores (N-Z)"}
 
-E = {"log": [], "uuids": set(), "falhar": False, "lock": threading.Lock()}
+# lotes pela ordem da folha: o n.o de referencia e a posicao nesta lista
+LOTES = [("India #bag01", 30), ("India #bag02", 25), ("India #bag03", 25),
+         ("India #bag04", 35), ("India #bag05", 15), ("India #bag06", 25),
+         ("India #bag07", 25), ("India #bag09", 20), ("India #bag10", 25),
+         ("India #bag11", 15), ("India #bag12", 25), ("India #bag13", 35),
+         ("India #bag14", 25), ("India #bag15", 35), ("India#S-2A", 20),
+         ("India#S-2B", 15), ("India#S-4", 20)]
+
+E = {"log": [], "uuids": set(), "mortas": set(), "falhar": False,
+     "lock": threading.Lock()}
+
+
+def referencia(seq):
+    """(n.o de referencia, nome do lote, n.o dentro do lote) a partir do seq."""
+    acc = 0
+    for i, (nome, n) in enumerate(LOTES):
+        if seq <= acc + n:
+            return i + 1, nome, seq - acc
+        acc += n
+    return 0, "", 0
 
 
 def letra(n):
@@ -55,6 +76,9 @@ def por_chave():
     out = {}
     for r in E["log"]:
         if not r["estado"].startswith("OK"):
+            continue
+        # marcas da planta: ficam no log mas nao sao registos de levantamento
+        if r["accao"] in ("Planta morta", "Planta viva"):
             continue
         k = chave(r["mode"], r.get("ronda", ""), r["pid"])
         if r["accao"] == "Eliminação":
@@ -100,6 +124,7 @@ class H(SimpleHTTPRequestHandler):
             with E["lock"]:
                 E["log"] = []
                 E["uuids"] = set()
+                E["mortas"] = set()
                 E["falhar"] = False
             self._json({"ok": True})
             return
@@ -148,17 +173,23 @@ class H(SimpleHTTPRequestHandler):
                 feitas.sort()
                 self._json({"ok": True, "hora": "2026-08-08 12:00:00", "mode": modo,
                             "ronda": ronda, "feitas": feitas,
+                            "mortas": sorted(E["mortas"]),
                             "rondas": ["5 month after planting (20260511)"]})
                 return
 
             if accao == "historico":
                 regs = list(por_chave().values())
                 regs.reverse()
-                self._json({"ok": True, "hora": "2026-08-08 12:00:00", "registos": [
-                    {"uuid": r["uuid"], "ts": r["tsLocal"], "recorder": r["dono"],
-                     "ultimo": r["recorder"], "accao": r["accao"], "mode": r["mode"],
-                     "ronda": r.get("ronda", ""), "pid": r["pid"]}
-                    for r in regs[:200]]})
+                saida = []
+                for r in regs[:200]:
+                    ref, lote, noLote = referencia(int(r["pid"][-3:]))
+                    saida.append(
+                        {"uuid": r["uuid"], "ts": r["tsLocal"], "recorder": r["dono"],
+                         "ultimo": r["recorder"], "accao": r["accao"], "mode": r["mode"],
+                         "ronda": r.get("ronda", ""), "pid": r["pid"],
+                         "ref": ref, "lote": lote, "noLote": noLote,
+                         "row": r.get("row", ""), "noFileira": r.get("noFileira", "")})
+                self._json({"ok": True, "hora": "2026-08-08 12:00:00", "registos": saida})
                 return
 
             if accao == "registo":
@@ -167,6 +198,7 @@ class H(SimpleHTTPRequestHandler):
                         self._json({"ok": True, "registo": {
                             "uuid": r["uuid"], "ts": r["tsLocal"], "recorder": r["recorder"],
                             "mode": r["mode"], "ronda": r.get("ronda", ""), "pid": r["pid"],
+                            "notas": r.get("notas", ""),
                             "values": r["values"]}})
                         return
                 self._json({"ok": False, "erro": "Registo não encontrado."})
@@ -215,8 +247,22 @@ class H(SimpleHTTPRequestHandler):
         modo = ent.get("mode")
         ronda = ent.get("ronda", "")
         pid = ent.get("pid", "")
+        pedida = ent.get("accao", "")
+
+        # marca da planta (morta/viva): nao e registo e nao depende do dono
+        if pedida in ("morta", "viva"):
+            if pedida == "morta":
+                E["mortas"].add(seq)
+            else:
+                E["mortas"].discard(seq)
+            rotulo = "Planta morta" if pedida == "morta" else "Planta viva"
+            E["uuids"].add(uuid)
+            E["log"].append({**ent, "accao": rotulo, "estado": "OK"})
+            return {"uuid": uuid, "ok": True, "linha": 2 + seq,
+                    "accao": rotulo, "celulas": []}
+
         anterior = por_chave().get(chave(modo, ronda, pid))
-        eliminar = ent.get("accao") == "eliminar"
+        eliminar = pedida == "eliminar"
         accao = "Eliminação" if eliminar else ("Correcção" if anterior else "Registo")
 
         if eliminar and not anterior:
@@ -224,13 +270,7 @@ class H(SimpleHTTPRequestHandler):
             E["log"].append({**ent, "accao": "Eliminação", "estado": "ERRO: " + erro})
             return {"uuid": uuid, "ok": False, "erro": erro}
 
-        if anterior and not admin:
-            dono = anterior["recorder"]
-            if dono and dono != ent.get("recorder", ""):
-                erro = (f"Esta planta foi registada por {dono}. "
-                        "Só essa pessoa (ou um administrador) a pode corrigir.")
-                E["log"].append({**ent, "accao": accao, "estado": "ERRO: " + erro})
-                return {"uuid": uuid, "ok": False, "erro": erro}
+        # desde 2026-08-12 nao ha recusa por causa de quem registou
 
         if eliminar:
             E["uuids"].add(uuid)
@@ -246,7 +286,8 @@ class H(SimpleHTTPRequestHandler):
                 col = (BASE_CRESC + i) if modo == "crescimento" else (BASE_DESCR + i)
                 celulas.append(f"{letra(col)}{2 + seq}")
 
-        if not celulas:
+        # uma observacao sozinha ja chega para gravar
+        if not celulas and not str(ent.get("notas", "")).strip():
             return {"uuid": uuid, "ok": False, "erro": "Nenhum valor preenchido."}
 
         E["uuids"].add(uuid)
