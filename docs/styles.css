@@ -233,21 +233,26 @@ textarea:focus { outline: none; border-color: var(--acento); }
 
 /* --------------------------------------------------------- escolha da planta */
 
-/* 17 lotes (n.os de referência) em quatro colunas: cabe o nome do saco por
-   baixo do número sem ficar espremido num telemóvel de 390 px. */
+/* O ecrã da planta tem de caber todo sem rolar: 16 fileiras, o número, o
+   cartão da planta e o teclado. Daí as oito colunas e as medidas curtas. */
+.ecra.compacto { padding-bottom: 132px; }
+.ecra.compacto .linhaTopo { margin: 0 0 8px; font-size: 13px; }
+
 .grelhaFileiras {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 9px;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
 }
 .grelhaFileiras button {
-  min-height: 66px;
-  font-size: 21px;
+  min-height: 46px;
+  padding: 2px;
+  font-size: 15px;
   font-weight: 700;
+  line-height: 1.1;
   color: var(--txt);
   background: var(--painel);
   border: 2px solid var(--linha);
-  border-radius: var(--r);
+  border-radius: 10px;
   cursor: pointer;
 }
 .grelhaFileiras button.activo {
@@ -257,48 +262,114 @@ textarea:focus { outline: none; border-color: var(--acento); }
 }
 .grelhaFileiras button small { display: block; font-size: 11px; font-weight: 400; opacity: .7; }
 
+/* O número e o que está ao lado dele (saltar / planta morta) numa linha só. */
+.linhaNumero { display: flex; align-items: stretch; gap: 10px; margin: 8px 0; }
+.linhaNumero .ladoDireito {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+}
+
 #visorNumero {
-  margin: 16px 0 10px;
-  padding: 16px;
+  flex: 0 0 34%;
+  padding: 6px 10px;
   text-align: center;
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 700;
   letter-spacing: 2px;
   background: var(--painel);
   border: 2px solid var(--linha);
-  border-radius: var(--r);
-  min-height: 78px;
+  border-radius: 10px;
+  min-height: 52px;
 }
-#visorNumero.vazio { color: var(--txt2); }
+/* Sem número, a caixa mostra a etiqueta ("N.º na fileira") em vez de um traço. */
+#visorNumero.vazio {
+  color: var(--txt2);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .teclado {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 9px;
+  gap: 7px;
 }
 .teclado button {
-  min-height: 64px;
-  font-size: 26px;
+  min-height: 52px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--txt);
   background: var(--painel2);
   border: none;
-  border-radius: var(--r);
+  border-radius: 10px;
   cursor: pointer;
 }
 .teclado button:active { background: var(--acento-esc); }
-.teclado button.aux { font-size: 17px; background: var(--painel); border: 2px solid var(--linha); }
+.teclado button.aux { font-size: 15px; background: var(--painel); border: 2px solid var(--linha); }
 
+/* Cartão da planta. A linhagem é a linha grande: a folha de dados e o mapa do
+   talhão estão organizados por linhagem, por isso é isso que quem anda pela
+   fileira precisa de ler primeiro. */
 #resolvidoPlanta {
-  margin-top: 14px;
-  padding: 13px 15px;
+  margin-top: 8px;
+  padding: 9px 12px;
   background: var(--painel);
   border-left: 4px solid var(--acento);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
 }
-#resolvidoPlanta b { font-size: 16px; }
 #resolvidoPlanta.erro { border-left-color: var(--erro); color: #ff8a80; }
+
+.linhagem {
+  display: block;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--acento);
+  line-height: 1.2;
+}
+.linhagem b { margin-left: 8px; color: var(--txt); }
+.inicioLote {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--aviso);
+  border: 1px solid var(--aviso);
+  border-radius: 999px;
+  padding: 0 7px;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+.idPlanta { display: block; font-size: 14px; font-weight: 700; }
+.posFileira { display: block; color: var(--txt2); font-size: 13px; }
+.jaFeita { color: var(--acento); font-size: 13px; }
+.marcaMorta { color: var(--aviso); font-weight: 700; font-size: 13px; }
+
+/* Cabeçalho do formulário: é um botão, para se acertar a planta sem voltar. */
+.cabecalhoPlanta {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 6px;
+  padding: 10px 12px;
+  background: var(--painel);
+  border: 2px solid var(--linha);
+  border-radius: var(--r);
+  color: var(--txt);
+  cursor: pointer;
+}
+.cabecalhoPlanta .trocar {
+  display: block;
+  margin-top: 2px;
+  color: var(--txt2);
+  font-size: 12px;
+  text-decoration: underline;
+}
 
 /* ------------------------------------------------------ escolhas por botao */
 
@@ -430,6 +501,45 @@ dialog h3 { margin: 0 0 10px; font-size: 19px; }
 dialog ul { margin: 10px 0; padding-left: 20px; color: var(--aviso); font-size: 15px; }
 .dialogoBotoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
 .dialogoBotoes .btn { margin: 0; }
+
+/* ------------------------------------------- confirmação antes de gravar */
+
+.alvoConfirmar {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: var(--painel2);
+  border-radius: 10px;
+}
+
+/* "Não há fruto nesta planta?" — a pergunta que quem está no campo responde
+   de cabeça, antes da lista de campos por preencher. */
+.semObjecto {
+  margin: 6px 0;
+  padding: 10px 12px;
+  background: #4a3c0c;
+  border-left: 4px solid var(--aviso);
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.valoresConfirmar { list-style: none; margin: 12px 0; padding: 0; color: var(--txt); }
+.valoresConfirmar li {
+  display: flex;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--linha);
+  font-size: 14px;
+}
+.valoresConfirmar li span { color: var(--txt2); flex: 1; }
+.valoresConfirmar li b { flex: none; }
+
+#detalheVazios { margin-top: 10px; }
+#detalheVazios summary { color: var(--txt2); font-size: 14px; cursor: pointer; padding: 6px 0; }
+.notaDialogo { color: var(--txt2); font-size: 13px; margin: 10px 0 0; }
+
+/* O "Voltar" da barra de baixo do ecrã da planta. */
+.ligacao.centrado { margin: 6px auto 0; }
 
 #brinde {
   position: fixed;

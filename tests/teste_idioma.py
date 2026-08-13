@@ -13,7 +13,6 @@ Precisa do servidor mock a correr:
 """
 
 import json
-import re
 import sys
 import urllib.parse
 import urllib.request
@@ -23,13 +22,10 @@ BASE = "http://127.0.0.1:8765"
 TOKEN = "TESTE-123456"
 FALHAS = []
 
-# lotes pela ordem da folha — o n.o de referencia e a posicao nesta lista
-LOTES = [("India #bag01", 30), ("India #bag02", 25), ("India #bag03", 25),
-         ("India #bag04", 35), ("India #bag05", 15), ("India #bag06", 25),
-         ("India #bag07", 25), ("India #bag09", 20), ("India #bag10", 25),
-         ("India #bag11", 15), ("India #bag12", 25), ("India #bag13", 35),
-         ("India #bag14", 25), ("India #bag15", 35), ("India#S-2A", 20),
-         ("India#S-2B", 15), ("India#S-4", 20)]
+# blocos de fileira: r01..r09 = 35, r10..r12 = 20, r13..r16 = 10
+FILEIRAS = ([("r%02d" % i, 35) for i in range(1, 10)] +
+            [("r%02d" % i, 20) for i in range(10, 13)] +
+            [("r%02d" % i, 10) for i in range(13, 17)])
 
 
 def ok(cond, msg):
@@ -57,24 +53,24 @@ def entrar(pag, nome):
 
 
 def escolher_seq(pag, seq):
-    """Escolhe a planta pelo n.o de referencia e pelo numero dentro do lote."""
+    """Escolhe a planta pela fileira e pelo numero dentro dela."""
     acc = 0
-    for nome, n in LOTES:
+    for nome, n in FILEIRAS:
         if seq <= acc + n:
-            curto, no = re.sub(r"^India\s*#\s*", "", nome), seq - acc
+            fila, no = nome, seq - acc
             break
         acc += n
-    pag.locator(f'#grelhaFileiras button:has-text("{curto}")').first.click()
+    pag.locator(f'#grelhaFileiras button:has-text("{fila}")').first.click()
     pag.locator('#teclado button[data-tecla="limpar"]').click()
     for d in str(no):
         pag.locator(f'#teclado button[data-tecla="{d}"]').click()
 
 
 def guardar(pag):
+    """A confirmacao aparece sempre; depois entra-se na planta seguinte."""
     pag.click("#btnEnviar")
     pag.wait_for_selector("#dlgIncompleto[open]")
     pag.click("#btnEnviarAssim")
-    pag.wait_for_selector("#ecraPlanta:not([hidden])")
     pag.wait_for_timeout(900)
 
 
@@ -149,6 +145,8 @@ def main():
         ok(reg[0]["values"]["peciolo"] == 3.25, "3.25 -> 3.25 (ponto aceite em portugues)")
 
         print("\n[7] o ecra mostra o sinal decimal da lingua")
+        pag.click("#ligTrocarPlanta")
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
         escolher_seq(pag, 45)
         pag.click("#btnPlanta")
         pag.wait_for_selector("#ecraFormulario:not([hidden])")
@@ -170,6 +168,8 @@ def main():
         ok(reg[1]["values"]["folhaComprimento"] == 7.75, "7,75 -> 7.75 com o ecra em ingles")
 
         print("\n[9] em japones o valor que sai e o mesmo")
+        pag.click("#ligTrocarPlanta")
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
         pag.locator('.ecra:not([hidden]) [data-voltar]').first.click()
         pag.wait_for_selector("#ecraLevantamento:not([hidden])")
         idioma(pag, "日本語")
@@ -186,9 +186,6 @@ def main():
            f"a chave enviada continua em ingles ({reg[2]['values'].get('habitoCrescimento')})")
 
         print("\n[10] numeros de largura total (teclado japones)")
-        escolher_seq(pag, 78)
-        pag.click("#btnPlanta")
-        pag.wait_for_selector("#ecraFormulario:not([hidden])")
         pag.fill("#campo_limboFoliar", "１，５")
         guardar(pag)
         reg = bater("/__estado")["log"]

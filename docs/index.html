@@ -99,22 +99,26 @@
   <button class="ligacao" data-voltar="ecraLevantamento" data-t="geral.voltar"></button>
 </section>
 
-<!-- ---------------------------------------------------------- 4. planta ---- -->
-<section class="ecra" id="ecraPlanta" hidden>
-  <h1 data-t="planta.titulo"></h1>
-  <p class="sub" id="subPlanta"></p>
+<!-- ---------------------------------------------------------- 4. planta ----
+     Tudo isto tem de caber num ecrã de telemóvel sem rolar: o "Continuar"
+     estava a ficar por baixo da dobra e havia que arrastar para o encontrar.
+     Daí o cabeçalho numa linha só, a grelha em 8 colunas e o botão fixo
+     em baixo. -->
+<section class="ecra compacto" id="ecraPlanta" hidden>
+  <p class="sub linhaTopo" id="subPlanta"></p>
 
-  <h2 data-t="planta.referencia"></h2>
   <div class="grelhaFileiras" id="grelhaFileiras"></div>
 
-  <h2 data-t="planta.numero"></h2>
-  <div id="visorNumero" class="vazio">—</div>
   <div id="resolvidoPlanta" hidden></div>
 
-  <!-- Caso raro: fica de lado e pequeno para não roubar o sítio ao que se
-       faz sempre. Só aparece depois de a planta estar escolhida. -->
-  <div class="cantoDireito">
-    <button class="ligacao discreta" id="ligMorta" hidden></button>
+  <div class="linhaNumero">
+    <div id="visorNumero" class="vazio">—</div>
+    <!-- Caso raro: fica de lado e pequeno para não roubar o sítio ao que se
+         faz sempre. Só aparece depois de a planta estar escolhida. -->
+    <div class="ladoDireito">
+      <button class="ligacao discreta" id="ligProximaPorFazer" data-t="planta.proxima"></button>
+      <button class="ligacao discreta" id="ligMorta" hidden></button>
+    </div>
   </div>
 
   <div class="teclado" id="teclado">
@@ -126,15 +130,23 @@
     <button class="aux" data-tecla="apagar">←</button>
   </div>
 
-  <button class="btn" id="btnPlanta" data-t="entrada.continuar" disabled></button>
-  <button class="ligacao" id="ligProximaPorFazer" data-t="planta.proxima"></button>
-  <button class="ligacao" data-voltar="ecraLevantamento" data-t="geral.voltar"></button>
+  <div class="barraFundo">
+    <button class="btn" id="btnPlanta" data-t="entrada.continuar" disabled></button>
+    <button class="ligacao centrado" data-voltar="ecraLevantamento" data-t="geral.voltar"></button>
+  </div>
 </section>
 
 <!-- ------------------------------------------------------ 5. formulário ---- -->
 <section class="ecra" id="ecraFormulario" hidden>
-  <h1 id="tituloForm"></h1>
-  <p class="sub" id="subForm"></p>
+  <!-- Depois de gravar entra-se logo no formulário da planta seguinte. O
+       cabeçalho diz qual é e serve de botão para a trocar, para não ser
+       preciso voltar atrás só para acertar o número. -->
+  <button class="cabecalhoPlanta" id="cabecalhoPlanta">
+    <span class="linhagem" id="linhagemForm"></span>
+    <span class="idPlanta" id="tituloForm"></span>
+    <span class="posFileira" id="subForm"></span>
+    <span class="trocar" data-t="form.trocarPlanta"></span>
+  </button>
   <div id="avisoEdicao" class="aviso" hidden></div>
   <div id="camposForm"></div>
 
@@ -176,15 +188,24 @@
 
 <div id="brinde" hidden></div>
 
-<!-- ------------------------------------------------ diálogo: campos vazios -- -->
+<!-- ------------------------------------------- diálogo: confirmar o registo --
+     Aparece SEMPRE antes de gravar, não só quando falta alguma coisa: é o
+     último sítio onde se vê o que se está prestes a mandar, e para que
+     planta. Quando há campos por preencher, a pergunta vem primeiro pelo
+     que a planta não tem ("não há fruto?") e só depois pelos campos. -->
 <dialog id="dlgIncompleto">
-  <h3 data-t="dlg.faltamTitulo"></h3>
-  <p data-t="dlg.faltamTexto"></p>
-  <ul id="listaVazios"></ul>
-  <p data-t="dlg.faltamNota"></p>
+  <h3 data-t="dlg.confirmarTitulo"></h3>
+  <p class="alvoConfirmar" id="alvoConfirmar"></p>
+  <div id="semObjectos"></div>
+  <div id="resumoValores"></div>
+  <details id="detalheVazios">
+    <summary data-t="dlg.verCamposVazios"></summary>
+    <ul id="listaVazios"></ul>
+  </details>
+  <p class="notaDialogo" data-t="dlg.faltamNota"></p>
   <div class="dialogoBotoes">
-    <button class="btn secundario" id="btnVoltarPreencher" data-t="geral.voltar"></button>
-    <button class="btn" id="btnEnviarAssim" data-t="dlg.enviarAssim"></button>
+    <button class="btn secundario" id="btnVoltarPreencher" data-t="dlg.corrigir"></button>
+    <button class="btn" id="btnEnviarAssim" data-t="dlg.confirmar"></button>
   </div>
 </dialog>
 

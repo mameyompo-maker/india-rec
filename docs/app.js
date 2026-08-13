@@ -109,6 +109,32 @@ var LEVANTAMENTOS = {
   }
 };
 
+/**
+ * O que a planta TEM, por oposição aos campos do formulário.
+ *
+ * Quando faltam o comprimento e a largura do fruto, o que isso quase sempre
+ * quer dizer é que a planta não tem fruto — e é essa a pergunta útil antes de
+ * gravar, não "faltam dois campos". Repare-se que a cor do fruto está aqui no
+ * objecto 'fruto' e não no grupo 'cores' onde aparece no ecrã: são duas
+ * arrumações diferentes da mesma lista, uma para preencher e outra para
+ * perguntar.
+ */
+var OBJECTOS = {
+  crescimento: [
+    { chave: 'porte',  campos: ['alturaPlanta', 'cnp1', 'cnp2', 'ramos'] },
+    { chave: 'cachos', campos: ['cachosFrutos', 'cachosFlores', 'cachosBotoes'] }
+  ],
+  descritores: [
+    { chave: 'habito',   campos: ['habitoCrescimento'] },
+    { chave: 'folha',    campos: ['limboFoliar', 'peciolo', 'folhaComprimento',
+                                  'folhaLargura', 'lobulosFolha'] },
+    { chave: 'florMasc', campos: ['corInflorMasc'] },
+    { chave: 'florFem',  campos: ['corInflorFem'] },
+    { chave: 'fruto',    campos: ['corFruto', 'frutoComprimento', 'frutoLargura'] },
+    { chave: 'semente',  campos: ['sementeComprimento', 'sementeLargura'] }
+  ]
+};
+
 function tituloLev(modo) { return t('lev.' + modo); }
 function rotuloCampo(c) { return t('campo.' + c.chave); }
 function rotuloOpcao(tipo, chave) { return t((tipo === 'cor' ? 'cor.' : 'habito.') + chave); }
@@ -206,9 +232,10 @@ var S = {
   fileiras: [],
   lotes: [],           // n.º de referência 1..17, pela ordem da folha
   ordemCampos: [],     // controlos do formulário pela ordem em que se preenchem
+  porFileira: {},
   porLote: {},
   porSeq: {},
-  lote: null,          // source do lote escolhido (o n.º de referência)
+  fileira: null,       // fileira escolhida (r01…r16)
   digitos: '',
   planta: null,
   modo: null,
@@ -219,6 +246,7 @@ var S = {
   mortas: {},          // seq -> true; marca da planta, vale para os dois levantamentos
   feitasHora: '',
   aEnviar: false,
+  envio: { feitos: 0, total: 0 },   // progresso do envio a decorrer
   abaHistorico: 'aparelho',
   registosServidor: null
 };
@@ -291,7 +319,7 @@ function redesenharEcra() {
     $('subPlanta').textContent = t('planta.sub', {
       titulo: tituloLev(S.modo), colunas: LEVANTAMENTOS[S.modo].colunas
     });
-    desenharLotes();
+    desenharFileiras();
     resolverPlanta();
   }
   if (S.ecra === 'ecraFormulario' && S.planta) desenharFormulario();
@@ -310,22 +338,38 @@ var Def = {
   del: function (k) { try { localStorage.removeItem('indiarec.' + k); } catch (e) {} }
 };
 
+/**
+ * A fila de envios.
+ *
+ * ⚠ A base tem de continuar a chamar-se 'indiarec' e a loja 'envios': há
+ * telemóveis com registos por enviar feitos por versões anteriores, e mudar
+ * qualquer um dos nomes deitava-os fora.
+ *
+ * Versão 2 (2026-08-14) acrescenta a loja 'config'. Uma subida de versão é
+ * uma operação segura — o IndexedDB mantém as lojas que já existem — e é
+ * precisa porque o service worker também envia a fila (sync em segundo plano)
+ * e lá não há localStorage para ir buscar o código de activação.
+ */
 var DB = (function () {
   var bd = null;
 
   function abrir() {
     return new Promise(function (ok, mau) {
       if (bd) return ok(bd);
-      var p = indexedDB.open('indiarec', 1);
+      var p = indexedDB.open('indiarec', 2);
       p.onupgradeneeded = function () {
         var d = p.result;
         if (!d.objectStoreNames.contains('envios')) {
           var s = d.createObjectStore('envios', { keyPath: 'uuid' });
           s.createIndex('estado', 'estado');
         }
+        if (!d.objectStoreNames.contains('config')) {
+          d.createObjectStore('config', { keyPath: 'chave' });
+        }
       };
       p.onsuccess = function () { bd = p.result; ok(bd); };
       p.onerror = function () { mau(p.error); };
+      p.onblocked = function () { mau(new Error('base de dados bloqueada')); };
     });
   }
 
@@ -333,12 +377,12 @@ var DB = (function () {
    * pilha volta ao ciclo de eventos ela deixa de estar activa. Por isso o pedido
    * é feito já dentro do callback, e só resolvemos quando a transacção completa
    * — o que garante que os dados ficaram mesmo gravados no disco. */
-  function comStore(modo, fn) {
+  function comStore(loja, modo, fn) {
     return abrir().then(function (d) {
       return new Promise(function (ok, mau) {
-        var tx = d.transaction('envios', modo);
-        var r = fn(tx.objectStore('envios'));
-        tx.oncomplete = function () { ok(r.result); };
+        var tx = d.transaction(loja, modo);
+        var r = fn(tx.objectStore(loja));
+        tx.oncomplete = function () { ok(r ? r.result : undefined); };
         tx.onerror = function () { mau(tx.error); };
         tx.onabort = function () { mau(tx.error); };
       });
@@ -346,16 +390,35 @@ var DB = (function () {
   }
 
   return {
-    guardar: function (e) { return comStore('readwrite', function (s) { return s.put(e); }); },
-    todos: function () { return comStore('readonly', function (s) { return s.getAll(); }); },
+    guardar: function (e) {
+      return comStore('envios', 'readwrite', function (s) { return s.put(e); });
+    },
+    todos: function () {
+      return comStore('envios', 'readonly', function (s) { return s.getAll(); });
+    },
     pendentes: function () {
       return this.todos().then(function (l) {
         return l.filter(function (e) { return e.estado === 'pendente'; })
                 .sort(function (a, b) { return a.criadoEm - b.criadoEm; });
       });
+    },
+    /* O service worker precisa de saber o URL e o código para poder enviar
+     * sozinho. Fica aqui uma cópia, escrita sempre que muda. */
+    guardarConfig: function (chave, valor) {
+      return comStore('config', 'readwrite', function (s) {
+        return s.put({ chave: chave, valor: valor });
+      });
     }
   };
 })();
+
+/** Mantém a cópia que o service worker lê. Barato, e evita ficar desactualizada. */
+function espelharConfig() {
+  return Promise.all([
+    DB.guardarConfig('endpoint', CFG.ENDPOINT || ''),
+    DB.guardarConfig('token', Def.get('token', ''))
+  ]).catch(function () {});
+}
 
 // ------------------------------------------------------------ administrador
 
@@ -539,7 +602,11 @@ function actualizarEstado() {
     if (!navigator.onLine) {
       actualizarBarra('offline', p.length ? t('rede.semRedeFila') : t('rede.semRede'));
     } else if (S.aEnviar) {
-      actualizarBarra('enviando', t('rede.aEnviar'));
+      /* Com 100 registos à espera, "A enviar…" durante um minuto não diz se
+       * está a andar. O contador mostra que está. */
+      actualizarBarra('enviando', S.envio.total
+        ? t('rede.aEnviarN', { n: S.envio.feitos, total: S.envio.total })
+        : t('rede.aEnviar'));
     } else if (p.length) {
       actualizarBarra('enviando', t('rede.porEnviar'));
     } else {
@@ -567,12 +634,44 @@ function pedirGet(params) {
     });
 }
 
+/**
+ * Manda a fila e, se não der, deixa o service worker encarregue de tentar
+ * outra vez quando o telemóvel voltar a ter rede — mesmo com a aplicação
+ * fechada. É isso que faz funcionar o "escrever 100 plantas sem rede e mandar
+ * tudo à chegada": até aqui só se enviava enquanto a aplicação estava aberta.
+ */
+function agendarEnvio() {
+  pedirSincronizacao();
+  return enviarFila();
+}
+
+function pedirSincronizacao() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready.then(function (reg) {
+    if (reg.sync) return reg.sync.register('enviar-fila');
+  }).catch(function () {});   // sem Background Sync (iOS) fica só o envio em primeiro plano
+}
+
+/**
+ * "Tentar enviar agora". Manda a página tentar e, ao mesmo tempo, acorda o
+ * service worker — se a página falhar por estar a meio de qualquer coisa, o
+ * service worker leva-a até ao fim.
+ */
+function forcarEnvio() {
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    try { navigator.serviceWorker.controller.postMessage({ tipo: 'enviar' }); } catch (e) {}
+  }
+  pedirSincronizacao();
+  return enviarFila();
+}
+
 function enviarFila() {
   if (S.aEnviar || !navigator.onLine || !configurado()) return Promise.resolve();
   var token = Def.get('token', '');
   if (!token) return Promise.resolve();
 
   S.aEnviar = true;
+  S.envio = { feitos: 0, total: 0 };
   actualizarEstado();
 
   return DB.pendentes().then(function (fila) {
@@ -585,17 +684,30 @@ function enviarFila() {
      * voltasse, esses ficariam presos para sempre. */
     var adminPw = Admin.pw();
 
+    S.envio.total = fila.length;
     var lotes = [];
     for (var i = 0; i < fila.length; i += LOTE_ENVIO) lotes.push(fila.slice(i, i + LOTE_ENVIO));
 
+    /* Um lote de cada vez, e o seguinte só depois de o anterior estar gravado.
+     * Assim, se a rede cair a meio dos 100, o que já passou fica marcado como
+     * enviado e só o resto é que volta a ser tentado. */
     return lotes.reduce(function (cadeia, lote) {
-      return cadeia.then(function () { return enviarLote(lote, token, adminPw); });
+      return cadeia.then(function () {
+        return enviarLote(lote, token, adminPw).then(function () {
+          S.envio.feitos += lote.length;
+          return actualizarEstado();
+        });
+      });
     }, Promise.resolve());
   }).then(function () {
     S.aEnviar = false;
+    S.envio = { feitos: 0, total: 0 };
     return actualizarEstado();
   }).catch(function () {
     S.aEnviar = false;
+    S.envio = { feitos: 0, total: 0 };
+    // ficou por enviar: o service worker que tente quando houver rede
+    pedirSincronizacao();
     return actualizarEstado();
   });
 }
@@ -724,12 +836,20 @@ function carregarProgresso(forcar) {
 }
 
 /**
- * Contagem de um lote (n.º de referência). As plantas mortas contam como
- * tratadas — senão o lote nunca ficava completo e quem lá anda ficava sem
- * saber se ainda faltava alguma coisa.
+ * Contagem de uma fileira. As plantas mortas contam como tratadas — senão a
+ * fileira nunca ficava completa e quem lá anda ficava sem saber se ainda
+ * faltava alguma coisa.
  */
+function contarFileira(row) {
+  return contarLista(S.porFileira[row]);
+}
+
 function contarLote(source) {
-  var lista = S.porLote[source] || [];
+  return contarLista(S.porLote[source]);
+}
+
+function contarLista(lista) {
+  lista = lista || [];
   var feitas = 0, mortas = 0, total = 0;
   for (var i = 1; i < lista.length; i++) {
     if (!lista[i]) continue;
@@ -753,7 +873,7 @@ function totalMortas() {
 }
 
 function pintarProgresso() {
-  desenharLotes();
+  desenharFileiras();
   resolverPlanta();
   pintarCartoes();
   if (!$('ecraProgresso').hidden) desenharEcraProgresso();
@@ -792,20 +912,38 @@ function desenharEcraProgresso() {
     (mortas ? ' · ' + esc(t('prog.mortas', { n: mortas })) : '') + '</div>' +
     '<span class="minibarra"><i style="width:' + pc + '%"></i></span></div>';
 
+  /* Duas leituras da mesma coisa: por fileira, que é como se anda no terreno,
+   * e por linhagem, que é como a folha de dados e o mapa estão organizados. */
   var alvo = $('listaFileiras');
   alvo.innerHTML = '';
-  S.lotes.forEach(function (l) {
-    var c = contarLote(l.source);
-    var p = c.total ? Math.round(c.tratadas / c.total * 100) : 0;
-    var d = document.createElement('div');
-    d.className = 'linhaFileira' + (c.tratadas === c.total ? ' completa' : '');
-    d.innerHTML = '<span class="nome">' + l.ref + '</span>' +
-      '<span class="lote">' + esc(l.source) + '</span>' +
-      '<span class="minibarra"><i style="width:' + p + '%"></i></span>' +
-      '<span class="cont">' + c.feitas + '/' + c.total +
-      (c.mortas ? ' <small>†' + c.mortas + '</small>' : '') + '</span>';
-    alvo.appendChild(d);
+
+  alvo.appendChild(cabecalhoLista(t('prog.porFileira')));
+  S.fileiras.forEach(function (f) {
+    alvo.appendChild(linhaProgresso(f.row, '', contarFileira(f.row)));
   });
+
+  alvo.appendChild(cabecalhoLista(t('prog.porLinhagem')));
+  S.lotes.forEach(function (l) {
+    alvo.appendChild(linhaProgresso(l.ref, nomeCurtoLote(l.source), contarLote(l.source)));
+  });
+}
+
+function cabecalhoLista(texto) {
+  var h = document.createElement('h2');
+  h.textContent = texto;
+  return h;
+}
+
+function linhaProgresso(nome, sub, c) {
+  var p = c.total ? Math.round(c.tratadas / c.total * 100) : 0;
+  var d = document.createElement('div');
+  d.className = 'linhaFileira' + (c.tratadas === c.total ? ' completa' : '');
+  d.innerHTML = '<span class="nome">' + esc(nome) + '</span>' +
+    (sub ? '<span class="lote">' + esc(sub) + '</span>' : '') +
+    '<span class="minibarra"><i style="width:' + p + '%"></i></span>' +
+    '<span class="cont">' + c.feitas + '/' + c.total +
+    (c.mortas ? ' <small>†' + c.mortas + '</small>' : '') + '</span>';
+  return d;
 }
 
 // ------------------------------------------------------------------ plantas
@@ -835,6 +973,7 @@ function carregarPlantas() {
     S.lotes = j.lotes.map(function (l, i) {
       return { source: l.source, count: l.count, ref: i + 1 };
     });
+    S.porFileira = {};
     S.porLote = {};
     S.porSeq = {};
 
@@ -849,26 +988,36 @@ function carregarPlantas() {
         source: lot[k][0],
         noFolha: lot[k][1]
       };
+      (S.porFileira[p.row] = S.porFileira[p.row] || [])[p.noFileira] = p;
       (S.porLote[p.source] = S.porLote[p.source] || [])[p.noFolha] = p;
       S.porSeq[seq] = p;
     }
   });
 }
 
-function desenharLotes() {
+/**
+ * Grelha das fileiras. Escolher pela fileira é o que bate certo com o terreno,
+ * e é assim desde o início — a passagem pelo n.º de referência (2026-08-12)
+ * foi desfeita no dia 14. O que ficou dessa ideia é o ECRÃ: a linhagem e a
+ * posição dentro dela aparecem em destaque no cartão da planta, porque é
+ * assim que a folha de dados e o mapa do talhão estão organizados.
+ */
+function desenharFileiras() {
   var g = $('grelhaFileiras');
   if (!g) return;
   g.innerHTML = '';
-  S.lotes.forEach(function (l) {
-    var c = contarLote(l.source);
+  S.fileiras.forEach(function (f) {
+    var c = contarFileira(f.row);
     var b = document.createElement('button');
-    b.innerHTML = l.ref + '<small>' + esc(nomeCurtoLote(l.source)) + '</small>' +
-      '<span class="feito">' + c.feitas + '/' + c.total + '</span>';
-    b.className = (S.lote === l.source ? 'activo' : '') +
+    b.innerHTML = f.row + '<span class="feito">' + c.feitas + '/' + c.total + '</span>';
+    b.className = (S.fileira === f.row ? 'activo' : '') +
       (c.tratadas === c.total ? ' completa' : '');
+    /* Carregar na fileira já põe o n.º 1: é sempre por aí que se começa, e
+     * poupa duas toques a quem tem o telemóvel numa mão e a fita na outra. */
     b.onclick = function () {
-      S.lote = l.source;
-      desenharLotes();
+      S.fileira = f.row;
+      S.digitos = '1';
+      desenharFileiras();
       resolverPlanta();
     };
     g.appendChild(b);
@@ -882,13 +1031,15 @@ function podeEditar() { return true; }
 function resolverPlanta() {
   var visor = $('visorNumero');
   if (!visor) return;
-  visor.textContent = S.digitos || '—';
+  /* Vazio, a caixa diz para que serve. Assim não é preciso um título por cima
+   * dela — e o ecrã inteiro cabe sem se ter de arrastar para ver o Continuar. */
+  visor.textContent = S.digitos || t('planta.numero');
   visor.classList.toggle('vazio', !S.digitos);
 
   var cx = $('resolvidoPlanta');
   S.planta = null;
 
-  if (!S.lote || !S.digitos) {
+  if (!S.fileira || !S.digitos) {
     cx.hidden = true;
     $('btnPlanta').disabled = true;
     pintarBotaoMorta();
@@ -896,40 +1047,53 @@ function resolverPlanta() {
   }
 
   var n = parseInt(S.digitos, 10);
-  var p = (S.porLote[S.lote] || [])[n];
+  var p = (S.porFileira[S.fileira] || [])[n];
   cx.hidden = false;
 
   if (!p) {
-    var l = loteDe(S.lote);
+    var max = (S.fileiras.filter(function (f) { return f.row === S.fileira; })[0] || {}).count;
     cx.className = 'erro';
-    cx.textContent = t('planta.soTem', { lote: rotuloRef(S.lote), max: l ? l.count : '?' });
+    cx.textContent = t('planta.soTem', { row: S.fileira, max: max });
     $('btnPlanta').disabled = true;
     pintarBotaoMorta();
     return;
   }
 
   S.planta = p;
-  var quem = S.feitas[p.seq];
-  var extra = '';
-  if (S.mortas[p.seq]) {
-    extra += '<br><span style="color:var(--aviso)">' + esc(t('planta.morta')) + '</span>';
-  }
-  if (quem) {
-    extra += '<br><span style="color:var(--acento)">' +
-      (quem === Def.get('nome', '')
-        ? esc(t('planta.jaFeitaPorSi'))
-        : esc(t('planta.jaFeitaPor', { quem: quem }))) + '</span>';
-  }
-
-  /* A fileira passou a ser informação de apoio: o que se escolhe é o n.º de
-   * referência, mas quem anda no campo precisa de saber onde está na fileira. */
   cx.className = '';
-  cx.innerHTML = '<b>' + esc(p.pid) + '</b>' + extra +
-    '<br>' + esc(rotuloRef(p.source)) + ' — ' + esc(t('planta.noLote', { no: p.noFolha })) +
-    '<br><small>' + t('planta.detalhe', { row: p.row, no: p.noFileira }) + '</small>' +
-    '<br><span class="sentido">' + esc(textoSentido(p.row)) + '</span>';
+  cx.innerHTML = cartaoPlanta(p);
   $('btnPlanta').disabled = false;
   pintarBotaoMorta();
+}
+
+/**
+ * O cartão da planta. A LINHAGEM vem em primeiro e em grande, porque a folha
+ * de dados e o mapa do talhão estão organizados por linhagem: quem vai a
+ * andar pela fileira precisa de saber, sem contas, em que linhagem está e em
+ * que planta dessa linhagem. O Plant ID e a posição na fileira vêm a seguir,
+ * para se conferir com a etiqueta.
+ */
+function cartaoPlanta(p) {
+  var avisos = '';
+  if (S.mortas[p.seq]) {
+    avisos += '<div class="marcaMorta">' + esc(t('planta.morta')) + '</div>';
+  }
+  var quem = S.feitas[p.seq];
+  if (quem) {
+    avisos += '<div class="jaFeita">' +
+      (quem === Def.get('nome', '')
+        ? esc(t('planta.jaFeitaPorSi'))
+        : esc(t('planta.jaFeitaPor', { quem: quem }))) + '</div>';
+  }
+  // primeira planta da linhagem: é onde é fácil perder a conta
+  var inicio = (p.noFolha === 1) ? ' <span class="inicioLote">' + esc(t('planta.inicioLote')) + '</span>' : '';
+
+  return '<div class="linhagem">' + esc(rotuloRef(p.source)) +
+    '<b>' + esc(t('planta.noLote', { no: p.noFolha })) + '</b>' + inicio + '</div>' +
+    '<div class="idPlanta">' + esc(p.pid) + '</div>' +
+    '<div class="posFileira">' + t('planta.detalhe', { row: p.row, no: p.noFileira }) +
+    ' &nbsp;·&nbsp; <span class="sentido">' + esc(textoSentido(p.row)) + '</span></div>' +
+    avisos;
 }
 
 /** Primeira planta ainda sem registo, a partir da posição actual. */
@@ -945,10 +1109,16 @@ function porFazer(seq) { return !S.feitas[seq] && !S.mortas[seq]; }
 
 function irParaPlanta(p) {
   if (!p) { brinde(t('planta.semMais')); return; }
-  S.lote = p.source;
-  S.digitos = String(p.noFolha);
-  desenharLotes();
+  S.fileira = p.row;
+  S.digitos = String(p.noFileira);
+  desenharFileiras();
   resolverPlanta();
+}
+
+/** A planta seguinte da mesma fileira, ou null no fim da fileira. */
+function seguinteNaFileira() {
+  if (!S.planta) return null;
+  return (S.porFileira[S.planta.row] || [])[S.planta.noFileira + 1] || null;
 }
 
 // ------------------------------------------------------------ planta morta
@@ -1005,8 +1175,8 @@ function marcarMorta(morta) {
     if (morta) S.mortas[p.seq] = true; else delete S.mortas[p.seq];
     brinde(t(morta ? 'planta.marcada' : 'planta.desmarcada', { pid: p.pid }));
     actualizarEstado();
-    enviarFila();
-    desenharLotes();
+    agendarEnvio();
+    desenharFileiras();
     resolverPlanta();
   });
 }
@@ -1019,10 +1189,11 @@ function desenharFormulario() {
   alvo.innerHTML = '';
   S.ordemCampos = [];
 
+  $('linhagemForm').textContent = rotuloRef(S.planta.source) + '  ' +
+    t('planta.noLote', { no: S.planta.noFolha });
   $('tituloForm').textContent = S.planta.pid;
   $('subForm').textContent = t('form.sub', {
-    titulo: tituloLev(S.modo), ref: rotuloRef(S.planta.source), no: S.planta.noFolha,
-    row: S.planta.row, noFileira: S.planta.noFileira
+    titulo: tituloLev(S.modo), row: S.planta.row, noFileira: S.planta.noFileira
   }) + (S.modo === 'crescimento' ? ' · ' + nomeRonda(Def.get('ronda', '')) : '');
 
   var av = $('avisoEdicao');
@@ -1121,9 +1292,9 @@ function eliminarRegisto() {
     S.edicao = null;
     S.notas = '';
     actualizarEstado();
-    enviarFila();
+    agendarEnvio();
     if (ecraAnterior() !== 'ecraHistorico') S.digitos = '';
-    desenharLotes();
+    desenharFileiras();
     resolverPlanta();
     voltar('ecraPlanta');
   });
@@ -1250,17 +1421,93 @@ function controlo(c) {
   return env;
 }
 
-/* Aqui usa-se sempre o nome comprido do campo: "Comprimento" sozinho, fora do
- * grupo onde estava, não diz se é o do fruto se o da semente. */
+/** Devolve os campos (não as etiquetas) por preencher e os com valor errado. */
 function validarFormulario() {
-  var maus = [], vazios = [];
+  var maus = [], vazios = [], preenchidos = [];
   camposDe(S.modo).forEach(function (c) {
     var v = S.valores[c.chave];
-    if (v === undefined || v === '') { vazios.push(rotuloCampoLongo(c)); return; }
-    if ((c.tipo === 'num' || c.tipo === 'int') && (isNaN(v) || v < 0)) maus.push(rotuloCampoLongo(c));
-    if (c.tipo === 'int' && Math.round(v) !== v) maus.push(rotuloCampoLongo(c));
+    if (v === undefined || v === '') { vazios.push(c); return; }
+    preenchidos.push(c);
+    if ((c.tipo === 'num' || c.tipo === 'int') && (isNaN(v) || v < 0)) maus.push(c);
+    else if (c.tipo === 'int' && Math.round(v) !== v) maus.push(c);
   });
-  return { maus: maus, vazios: vazios };
+  return { maus: maus, vazios: vazios, preenchidos: preenchidos };
+}
+
+function valorLegivel(c) {
+  var v = S.valores[c.chave];
+  if (v === undefined || v === '') return '';
+  return (c.tipo === 'cor' || c.tipo === 'habito') ? rotuloOpcao(c.tipo, v) : mostrarNumero(v);
+}
+
+/** Objectos deste levantamento sem um único campo preenchido. */
+function objectosVazios() {
+  var vazios = {};
+  validarFormulario().vazios.forEach(function (c) { vazios[c.chave] = true; });
+  return (OBJECTOS[S.modo] || []).filter(function (o) {
+    return o.campos.every(function (k) { return vazios[k]; });
+  });
+}
+
+/**
+ * Confirmação antes de gravar. Aparece sempre — é o único sítio onde se vê,
+ * de uma vez, para que planta se está a registar e o que vai ser gravado.
+ * A parte de cima pergunta pelo que a planta não tem ("não há fruto?"), que
+ * é a pergunta que quem está no campo consegue responder de cabeça; a lista
+ * de campos por preencher fica fechada por baixo.
+ */
+function abrirConfirmacao() {
+  var v = validarFormulario();
+
+  $('alvoConfirmar').innerHTML =
+    '<span class="linhagem">' + esc(rotuloRef(S.planta.source)) + ' ' +
+    esc(t('planta.noLote', { no: S.planta.noFolha })) + '</span>' +
+    '<span class="idPlanta">' + esc(S.planta.pid) + '</span>' +
+    '<span class="posFileira">' + tituloLev(S.modo) + ' · ' +
+    t('planta.detalhe', { row: S.planta.row, no: S.planta.noFileira }) + '</span>';
+
+  var sem = $('semObjectos');
+  sem.innerHTML = '';
+  objectosVazios().forEach(function (o) {
+    var d = document.createElement('div');
+    d.className = 'semObjecto';
+    d.textContent = t('dlg.semObjecto', { objecto: t('objecto.' + o.chave) });
+    sem.appendChild(d);
+  });
+
+  var resumo = $('resumoValores');
+  resumo.innerHTML = '';
+  var ul = document.createElement('ul');
+  ul.className = 'valoresConfirmar';
+  v.preenchidos.forEach(function (c) {
+    var li = document.createElement('li');
+    li.innerHTML = '<span>' + esc(rotuloCampoLongo(c)) + '</span>' +
+      '<b>' + esc(valorLegivel(c)) + '</b>';
+    ul.appendChild(li);
+  });
+  if (S.notas) {
+    var liN = document.createElement('li');
+    liN.innerHTML = '<span>' + esc(t('campo.notas')) + '</span><b>' + esc(S.notas) + '</b>';
+    ul.appendChild(liN);
+  }
+  if (!ul.children.length) {
+    resumo.innerHTML = '<div class="semObjecto">' + esc(t('dlg.nadaPreenchido')) + '</div>';
+  } else {
+    resumo.appendChild(ul);
+  }
+
+  var det = $('detalheVazios');
+  var lista = $('listaVazios');
+  lista.innerHTML = '';
+  v.vazios.forEach(function (c) {
+    var li = document.createElement('li');
+    li.textContent = rotuloCampoLongo(c);
+    lista.appendChild(li);
+  });
+  det.hidden = !v.vazios.length;
+  det.open = false;
+
+  $('dlgIncompleto').showModal();
 }
 
 function gravarRegisto() {
@@ -1300,22 +1547,46 @@ function gravarRegisto() {
     S.edicao = null;
     S.notas = '';
     actualizarEstado();
-    enviarFila();
+    agendarEnvio();
 
-    /* Quem veio do histórico corrigir um registo quer voltar ao histórico.
-     * Quem está a medir quer a planta seguinte do mesmo lote. */
-    if (!doHistorico) {
-      var seguinte = proximaPorFazer();
-      if (seguinte && seguinte.source === S.planta.source) {
-        irParaPlanta(seguinte);
-      } else {
-        S.digitos = '';
-        desenharLotes();
-        resolverPlanta();
-      }
+    // quem veio do histórico corrigir um registo quer voltar ao histórico
+    if (doHistorico) { voltar('ecraPlanta'); return; }
+
+    /* Quem está a medir vai a andar pela fileira: entra-se logo no formulário
+     * da planta seguinte, sem passar pelo ecrã de escolha. Poupa um toque em
+     * cada planta — 415 vezes. O cabeçalho do formulário diz qual é e serve
+     * de botão para a trocar, se for preciso saltar alguma. */
+    var seguinte = seguinteNaFileira();
+    if (seguinte) {
+      abrirFormulario(seguinte);
+    } else {
+      // fim da fileira: volta-se ao ecrã da escolha para se apanhar a próxima
+      S.digitos = '';
+      desenharFileiras();
+      resolverPlanta();
+      brinde(t('planta.fimFileira', { row: reg.row }));
+      voltar('ecraPlanta');
     }
-    voltar('ecraPlanta');
   });
+}
+
+/**
+ * Abre o formulário limpo para uma planta. Se essa planta já tiver registo,
+ * o aviso de correcção aparece — mas não se vai buscar nada ao servidor: quem
+ * está a andar pela fileira não pode ficar à espera da rede a cada planta.
+ */
+function abrirFormulario(p) {
+  S.planta = p;
+  S.fileira = p.row;
+  S.digitos = String(p.noFileira);
+  S.valores = {};
+  S.notas = '';
+  S.edicao = null;
+  var quem = S.feitas[p.seq];
+  if (quem) S.edicao = { uuid: '', recorder: quem };
+  desenharFileiras();
+  desenharFormulario();
+  mostrar('ecraFormulario');
 }
 
 // ---------------------------------------------------------------- registos
@@ -1431,8 +1702,8 @@ function prepararEdicao(modo, ronda, planta, valores, dono, uuidOriginal, notas)
   S.modo = modo;
   if (modo === 'crescimento' && ronda) Def.set('ronda', ronda);
   S.planta = planta;
-  S.lote = planta.source;
-  S.digitos = String(planta.noFolha);
+  S.fileira = planta.row;
+  S.digitos = String(planta.noFileira);
   S.valores = {};
   camposDe(modo).forEach(function (c) {
     if (valores[c.chave] !== undefined) S.valores[c.chave] = valores[c.chave];
@@ -1482,7 +1753,7 @@ function abrirEcraPlanta() {
   $('subPlanta').textContent = t('planta.sub', {
     titulo: tituloLev(S.modo), colunas: LEVANTAMENTOS[S.modo].colunas
   });
-  desenharLotes();
+  desenharFileiras();
   resolverPlanta();
   mostrar('ecraPlanta');
   carregarProgresso();
@@ -1529,6 +1800,7 @@ function ligarEventos() {
       return;
     }
     Def.set('token', v);
+    espelharConfig();          // para o service worker poder enviar sozinho
     $('inpCodigo').value = '';
     av.hidden = true;
     irParaEntrada();
@@ -1596,7 +1868,7 @@ function ligarEventos() {
   };
 
   $('btnForcarEnvio').onclick = function () {
-    enviarFila().then(desenharHistorico);
+    forcarEnvio().then(desenharHistorico);
   };
 
   var abas = $('abasHistorico').querySelectorAll('.aba');
@@ -1700,30 +1972,34 @@ function ligarEventos() {
 
   $('ligTrocarPlanta').onclick = function () { S.edicao = null; S.notas = ''; voltar('ecraPlanta'); };
 
+  // o cabeçalho do formulário é o botão para acertar a planta
+  $('cabecalhoPlanta').onclick = function () {
+    desenharFileiras();
+    resolverPlanta();
+    mostrar('ecraPlanta');
+  };
+
   $('btnEnviar').onclick = function () {
     var v = validarFormulario();
-    if (v.maus.length) { brinde(t('form.corrija', { lista: v.maus.join(', ') }), true); return; }
+    if (v.maus.length) {
+      brinde(t('form.corrija', {
+        lista: v.maus.map(rotuloCampoLongo).join(', ')
+      }), true);
+      return;
+    }
     // uma observação sozinha já chega para valer a pena gravar
     if (v.vazios.length === camposDe(S.modo).length && !(S.notas || '').trim()) {
       brinde(t('form.peloMenosUm'), true);
       return;
     }
-    if (v.vazios.length) {
-      var ul = $('listaVazios');
-      ul.innerHTML = '';
-      v.vazios.forEach(function (r) {
-        var li = document.createElement('li');
-        li.textContent = r;
-        ul.appendChild(li);
-      });
-      $('dlgIncompleto').showModal();
-      return;
-    }
-    gravarRegisto();
+    // a confirmação aparece sempre, esteja tudo preenchido ou não
+    abrirConfirmacao();
   };
 
   $('btnVoltarPreencher').onclick = function () { $('dlgIncompleto').close(); };
   $('btnEnviarAssim').onclick = function () { $('dlgIncompleto').close(); gravarRegisto(); };
+  // fechar pelo botão do telemóvel é o mesmo que "corrigir": não grava nada
+  $('dlgIncompleto').addEventListener('cancel', function () { $('dlgIncompleto').close(); });
 
   $('btnEliminar').onclick = perguntarEliminar;
   $('btnNaoEliminar').onclick = function () { $('dlgEliminar').close(); };
@@ -1742,12 +2018,29 @@ function ligarEventos() {
     })(voltares[j]);
   }
 
-  window.addEventListener('online', function () { actualizarEstado(); enviarFila(); });
+  window.addEventListener('online', function () { actualizarEstado(); agendarEnvio(); });
   window.addEventListener('offline', actualizarEstado);
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) { actualizarEstado(); enviarFila(); }
+    if (!document.hidden) { actualizarEstado(); agendarEnvio(); }
   });
   setInterval(function () { enviarFila(); }, INTERVALO_TENTATIVA);
+
+  /* O service worker também envia. Quando o faz, avisa: sem isto a lista e o
+   * contador ficavam a dizer "por enviar" com a fila já vazia. */
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      if (!e.data || e.data.tipo !== 'fila') return;
+      S.envio = e.data.fim ? { feitos: 0, total: 0 }
+                           : { feitos: e.data.enviados, total: e.data.total };
+      S.aEnviar = !e.data.fim;
+      actualizarEstado();
+      if (e.data.fim) {
+        if (e.data.enviados) brinde(t('rede.enviados', { n: e.data.enviados }));
+        if (S.ecra === 'ecraHistorico') desenharHistorico();
+        carregarProgresso();
+      }
+    });
+  }
 }
 
 // ------------------------------------------------------------------ arranque
@@ -1764,7 +2057,8 @@ carregarPlantas().then(function () {
   ligarEventos();
   arrancar();
   actualizarEstado();
-  enviarFila();
+  espelharConfig();     // o service worker precisa do URL e do código para enviar sozinho
+  agendarEnvio();
 }).catch(function () {
   /* Ainda não se sabe o idioma escolhido (o arranque falhou antes disso), por
    * isso vai-se buscá-lo directamente ao armazenamento. */
