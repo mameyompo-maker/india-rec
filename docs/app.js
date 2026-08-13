@@ -246,6 +246,10 @@ var S = {
   mortas: {},          // seq -> true; marca da planta, vale para os dois levantamentos
   feitasHora: '',
   aEnviar: false,
+  /* O que aconteceu na última tentativa de envio: {hora, enviados, erro}.
+   * Até 2026-08-14 as falhas eram engolidas por um .catch vazio e uma fila que
+   * não subia não dava nenhuma pista a quem estava no campo. */
+  ultimoEnvio: null,
   envio: { feitos: 0, total: 0 },   // progresso do envio a decorrer
   abaHistorico: 'aparelho',
   registosServidor: null
@@ -702,14 +706,58 @@ function enviarFila() {
   }).then(function () {
     S.aEnviar = false;
     S.envio = { feitos: 0, total: 0 };
+    marcarTentativa(null);
     return actualizarEstado();
-  }).catch(function () {
+  }).catch(function (e) {
     S.aEnviar = false;
     S.envio = { feitos: 0, total: 0 };
+    marcarTentativa(e);
     // ficou por enviar: o service worker que tente quando houver rede
     pedirSincronizacao();
     return actualizarEstado();
   });
+}
+
+/**
+ * Guarda o resultado da última tentativa e põe-no no ecrã.
+ *
+ * A 13 de Agosto ficaram 13 registos por subir num telemóvel e não havia nada
+ * na aplicação que dissesse porquê: o código de activação estava errado, o
+ * servidor respondia "Não autorizado" e o `.catch` deitava isso fora. Agora a
+ * razão fica escrita no ecrã do histórico, ao lado do botão de enviar.
+ */
+function marcarTentativa(erro) {
+  S.ultimoEnvio = {
+    hora: Date.now(),
+    erro: erro ? (erro.message || String(erro)) : ''
+  };
+  pintarAvisoEnvio();
+}
+
+function pintarAvisoEnvio() {
+  var el = $('avisoEnvio');
+  if (!el) return;
+  var u = S.ultimoEnvio;
+  if (!u) { el.hidden = true; return; }
+
+  el.hidden = false;
+  el.className = 'aviso' + (u.erro ? ' erro' : '');
+  var quando = horaCurta(u.hora);
+  el.textContent = u.erro
+    ? t('rede.falhouAs', { hora: quando, motivo: traduzirErro(u.erro) })
+    : t('rede.okAs', { hora: quando });
+}
+
+function horaCurta(ms) {
+  var d = new Date(ms);
+  return dois(d.getHours()) + ':' + dois(d.getMinutes());
+}
+
+/** As mensagens que valem a pena explicar; o resto passa como veio do servidor. */
+function traduzirErro(msg) {
+  if (/sem rede|failed to fetch|networkerror|load failed/i.test(msg)) return t('rede.erroSemRede');
+  if (/não autorizado|nao autorizado|unauthorized/i.test(msg)) return t('rede.erroCodigo');
+  return msg;
 }
 
 function enviarLote(lote, token, adminPw) {
@@ -1594,6 +1642,7 @@ function abrirFormulario(p) {
 function desenharHistorico() {
   var ul = $('listaHistorico');
   var eu = Def.get('nome', '');
+  pintarAvisoEnvio();
 
   if (S.abaHistorico === 'aparelho') {
     DB.todos().then(function (l) {
@@ -2023,7 +2072,17 @@ function ligarEventos() {
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) { actualizarEstado(); agendarEnvio(); }
   });
-  setInterval(function () { enviarFila(); }, INTERVALO_TENTATIVA);
+  /* De minuto a minuto, enquanto houver fila. O pedido de sincronização é
+   * repetido de propósito: o Android consome o registo assim que corre o evento
+   * uma vez, e se essa corrida não esvaziou a fila (por exemplo por ainda não
+   * haver código de activação) ficava sem ninguém a tentar outra vez. */
+  setInterval(function () {
+    DB.pendentes().then(function (p) {
+      if (!p.length) return;
+      pedirSincronizacao();
+      return enviarFila();
+    }).catch(function () {});
+  }, INTERVALO_TENTATIVA);
 
   /* O service worker também envia. Quando o faz, avisa: sem isto a lista e o
    * contador ficavam a dizer "por enviar" com a fila já vazia. */
@@ -2035,6 +2094,9 @@ function ligarEventos() {
       S.aEnviar = !e.data.fim;
       actualizarEstado();
       if (e.data.fim) {
+        /* O envio em segundo plano acontece com a aplicação fechada. Se
+         * falhou, a razão só se pode ver aqui, quando se volta a abrir. */
+        marcarTentativa(e.data.erro ? new Error(e.data.erro) : null);
         if (e.data.enviados) brinde(t('rede.enviados', { n: e.data.enviados }));
         if (S.ecra === 'ecraHistorico') desenharHistorico();
         carregarProgresso();

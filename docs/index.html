@@ -181,6 +181,11 @@
   <ul class="listaEnvios" id="listaHistorico"></ul>
 
   <button class="btn secundario" id="btnForcarEnvio" data-t="hist.forcar"></button>
+
+  <!-- Porque falhou o último envio. Sem isto, uma fila que não sobe não diz
+       nada a quem está no campo — foi o que aconteceu a 13 de Agosto. -->
+  <div class="aviso" id="avisoEnvio" hidden></div>
+
   <button class="ligacao" data-voltar="ecraLevantamento" data-t="geral.voltar"></button>
 </section>
 

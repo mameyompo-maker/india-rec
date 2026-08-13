@@ -12,7 +12,7 @@
  * IMPORTANTE: subir CACHE sempre que se altera qualquer ficheiro em docs/,
  * caso contrário os telemóveis continuam a usar a versão antiga.
  */
-var CACHE = 'indiarec-v14';
+var CACHE = 'indiarec-v15';
 
 var FICHEIROS = [
   './',
@@ -105,23 +105,43 @@ function avisarPaginas(dados) {
   });
 }
 
-/** Manda tudo o que estiver pendente. Rejeita se ficar alguma coisa por enviar,
- *  para o Background Sync voltar a chamar mais tarde. */
+/**
+ * Manda tudo o que estiver pendente.
+ *
+ * ⚠ Tem de REJEITAR sempre que sobre alguma coisa por enviar. O Android dá o
+ * evento de sincronização por cumprido assim que a promessa resolve e deita o
+ * registo fora — a fila fica então à espera de alguém abrir a aplicação, que é
+ * exactamente o que não queremos. Até 2026-08-14 isto resolvia em silêncio
+ * quando faltava o código de activação, e uma tentativa dessas gastava a única
+ * oportunidade de reenvio.
+ */
 function enviarFilaSW() {
   var bd, endpoint, token;
+
+  function pendentes() {
+    return comLoja(bd, 'envios', 'readonly', function (s) { return s.getAll(); })
+      .then(function (todos) {
+        return (todos || []).filter(function (e) { return e.estado === 'pendente'; })
+                            .sort(function (a, b) { return a.criadoEm - b.criadoEm; });
+      });
+  }
+
+  function desistir(motivo, enviados, total) {
+    return avisarPaginas({
+      tipo: 'fila', fim: true, enviados: enviados, total: total, erro: motivo
+    }).then(function () { throw new Error(motivo); });
+  }
+
   return abrirBase().then(function (d) {
     bd = d;
     return Promise.all([lerConfig(bd, 'endpoint'), lerConfig(bd, 'token')]);
   }).then(function (cfg) {
     endpoint = cfg[0];
     token = cfg[1];
-    if (!endpoint || !token) return null;   // nada a fazer: não há para onde enviar
-    return comLoja(bd, 'envios', 'readonly', function (s) { return s.getAll(); });
-  }).then(function (todos) {
-    if (!todos) return;
-    var fila = todos.filter(function (e) { return e.estado === 'pendente'; })
-                    .sort(function (a, b) { return a.criadoEm - b.criadoEm; });
-    if (!fila.length) return;
+    return pendentes();
+  }).then(function (fila) {
+    if (!fila.length) return;                 // nada a fazer, e isso é um êxito
+    if (!endpoint || !token) return desistir('sem código de activação', 0, fila.length);
 
     var lotes = [];
     for (var i = 0; i < fila.length; i += LOTE_ENVIO) lotes.push(fila.slice(i, i + LOTE_ENVIO));
@@ -135,7 +155,16 @@ function enviarFilaSW() {
         });
       });
     }, Promise.resolve()).then(function () {
-      return avisarPaginas({ tipo: 'fila', fim: true, enviados: enviados, total: fila.length });
+      /* Os que o servidor recusou ficam marcados 'erro' e já não contam como
+       * pendentes: não se insiste com esses. Os que continuam pendentes são os
+       * que nem chegaram a ser tentados. */
+      return pendentes().then(function (sobram) {
+        if (sobram.length) return desistir('ficaram ' + sobram.length + ' por enviar',
+                                           enviados, fila.length);
+        return avisarPaginas({ tipo: 'fila', fim: true, enviados: enviados, total: fila.length });
+      });
+    }, function (e) {
+      return desistir((e && e.message) || 'falhou o envio', enviados, fila.length);
     });
   });
 }
