@@ -589,7 +589,54 @@ def main():
         })""")
         ok(marcado == "enviado", f"e marcou-o como enviado na fila ({marcado})")
 
-        print("\n[24] service worker e erros de JS")
+        print("\n[24] quando a fila nao sobe, o ecra diz porque")
+        # O caso de 13 de Agosto: o codigo de activacao estava errado, o
+        # servidor respondia "Nao autorizado" e a aplicacao nao dizia nada —
+        # 13 registos ficaram parados sem ninguem perceber porque.
+        antes = len(log_servidor())
+        pag.evaluate("""() => new Promise((feito, mau) => {
+          const p = indexedDB.open('indiarec', 2);
+          p.onsuccess = () => {
+            const tx = p.result.transaction('envios', 'readwrite');
+            tx.objectStore('envios').put({
+              uuid: 'com-codigo-errado', criadoEm: 3, tsLocal: '14/08/2026 09:00:00',
+              tsIso: '2026-08-14T09:00:00+02:00', estado: 'pendente',
+              recorder: 'Cheia', device: 'aparelho-1',
+              mode: 'descritores', ronda: '', substitui: '', accao: '',
+              seq: 300, pid: 'NBF(Tanheia)26-300', row: 'r09',
+              noFileira: 20, noFolha: 15, source: 'India #bag13',
+              values: { limboFoliar: 5.5 }
+            });
+            tx.oncomplete = () => feito(1);
+            tx.onerror = () => mau(tx.error);
+          };
+          p.onerror = () => mau(p.error);
+        })""")
+        certo = pag.evaluate("() => Def.get('token', '')")
+        pag.evaluate("() => Def.set('token', 'CODIGO-ERRADO')")
+        pag.evaluate("enviarFila()")
+        pag.wait_for_timeout(2500)
+        ok(len(log_servidor()) == antes, "o servidor recusou e nada foi gravado")
+
+        pag.evaluate("irParaLevantamento()")
+        pag.wait_for_selector("#ecraLevantamento:not([hidden])")
+        pag.click("#ligHistorico")
+        pag.wait_for_selector("#ecraHistorico:not([hidden])")
+        ok(not pag.locator("#avisoEnvio").is_hidden(), "o aviso do envio aparece")
+        aviso = pag.inner_text("#avisoEnvio")
+        ok("código de activação" in aviso, f"e diz que o problema e o codigo ({aviso!r})")
+
+        pag.evaluate("(t) => Def.set('token', t)", certo)
+        pag.evaluate("forcarEnvio()")
+        pag.wait_for_timeout(2500)
+        ok(len(log_servidor()) == antes + 1, "com o codigo certo o registo sobe")
+        pag.evaluate("desenharHistorico()")
+        desapareceu = pag.inner_text("#avisoEnvio")
+        ok("código de activação" not in desapareceu,
+           f"e o aviso deixa de acusar o codigo ({desapareceu!r})")
+        voltar(pag)
+
+        print("\n[25] service worker e erros de JS")
         ok(pag.evaluate("navigator.serviceWorker.controller ? 1 : 0") == 1, "service worker activo")
         reais = [e for e in erros if "favicon" not in e.lower()]
         ok(not reais, f"sem erros de JS ({reais[:3]})")
