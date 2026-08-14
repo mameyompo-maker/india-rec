@@ -12,7 +12,7 @@
  * IMPORTANTE: subir CACHE sempre que se altera qualquer ficheiro em docs/,
  * caso contrário os telemóveis continuam a usar a versão antiga.
  */
-var CACHE = 'indiarec-v15';
+var CACHE = 'indiarec-v16';
 
 var FICHEIROS = [
   './',

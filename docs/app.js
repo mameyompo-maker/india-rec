@@ -21,6 +21,20 @@
 
 var CFG = window.INDIAREC_CONFIG || {};
 var LOTE_ENVIO = 25;
+
+/* O que se grava num campo que ficou por preencher.
+ *
+ * Uma célula vazia na folha é ambígua: tanto pode querer dizer "a planta não
+ * tem fruto" como "ninguém lá foi". Quem trata os dados depois não consegue
+ * distinguir. Por isso, o que se deixou em branco num registo que chegou a ser
+ * gravado vai como 0 (medidas e contagens) ou X (escolhas) — dito de outra
+ * maneira: "estive lá e não havia". Não se escreve nada em plantas que nunca
+ * foram registadas: essas continuam com a célula vazia. */
+var SEM_MEDIDA = 'X';
+
+function valorPorOmissao(c) {
+  return (c.tipo === 'cor' || c.tipo === 'habito') ? SEM_MEDIDA : 0;
+}
 var INTERVALO_TENTATIVA = 60000;
 var VALIDADE_ADMIN = 12 * 3600 * 1000;   // o modo administrador expira ao fim de 12 h
 
@@ -237,11 +251,26 @@ var S = {
   porSeq: {},
   fileira: null,       // fileira escolhida (r01…r16)
   digitos: '',
+  /* Verdadeiro quando os dígitos foram postos pela aplicação (o 1 que aparece
+   * ao carregar na fileira, ou o número da planta seguinte) e não escritos por
+   * quem está a medir. A primeira tecla substitui-os em vez de os continuar:
+   * com o 1 já posto, carregar no 2 tem de dar 2 e não 12. */
+  digitosAuto: false,
   planta: null,
   modo: null,
   valores: {},
   notas: '',           // observação livre do registo que está aberto
   edicao: null,        // {uuid, recorder} quando se está a corrigir um registo
+  /* Quando se vai ao ecrã da planta a partir do formulário para trocar de
+   * alvo. Sem isto o "Continuar" limpava tudo e o que já estava escrito
+   * perdia-se — que é justamente o que não se quer quando o erro foi o
+   * número da planta e não as medidas. */
+  mudarAlvo: false,
+  trocouAlvo: false,   // já se trocou de planta neste formulário
+  /* A planta em que o formulário foi aberto. Se o alvo mudar, é daqui que se
+   * apaga o registo que ficou na planta errada. */
+  alvoOriginal: null,
+  fileiraHist: null,   // fileira aberta no histórico (null = lista por data)
   feitas: {},          // seq -> nome de quem registou, do levantamento actual
   mortas: {},          // seq -> true; marca da planta, vale para os dois levantamentos
   feitasHora: '',
@@ -1065,6 +1094,7 @@ function desenharFileiras() {
     b.onclick = function () {
       S.fileira = f.row;
       S.digitos = '1';
+      S.digitosAuto = true;
       desenharFileiras();
       resolverPlanta();
     };
@@ -1140,7 +1170,7 @@ function cartaoPlanta(p) {
     '<b>' + esc(t('planta.noLote', { no: p.noFolha })) + '</b>' + inicio + '</div>' +
     '<div class="idPlanta">' + esc(p.pid) + '</div>' +
     '<div class="posFileira">' + t('planta.detalhe', { row: p.row, no: p.noFileira }) +
-    ' &nbsp;·&nbsp; <span class="sentido">' + esc(textoSentido(p.row)) + '</span></div>' +
+    '<span class="sentido">' + esc(textoSentido(p.row)) + '</span></div>' +
     avisos;
 }
 
@@ -1159,6 +1189,7 @@ function irParaPlanta(p) {
   if (!p) { brinde(t('planta.semMais')); return; }
   S.fileira = p.row;
   S.digitos = String(p.noFileira);
+  S.digitosAuto = true;
   desenharFileiras();
   resolverPlanta();
 }
@@ -1226,6 +1257,45 @@ function marcarMorta(morta) {
     agendarEnvio();
     desenharFileiras();
     resolverPlanta();
+    pintarBotaoMortaForm();
+  });
+}
+
+/**
+ * O mesmo botão, mas no topo do formulário.
+ *
+ * Depois de gravar entra-se logo na planta seguinte, e para dizer que essa
+ * está morta era preciso recuar ao ecrã do número, marcar, e voltar a entrar.
+ * Aqui marca-se onde já se está.
+ */
+function pintarBotaoMortaForm() {
+  var b = $('ligMortaForm');
+  if (!b || !S.planta) return;
+  var morta = !!S.mortas[S.planta.seq];
+  b.textContent = morta ? t('planta.desmarcarMorta') : t('form.marcarMorta');
+  b.classList.toggle('activo', morta);
+}
+
+/**
+ * Marca a planta morta a partir do formulário e passa à seguinte da fileira:
+ * uma planta morta não vai ter medidas, portanto não há mais nada a fazer
+ * neste ecrã. Desmarcar fica no sítio, que é quem se enganou a marcar.
+ */
+function marcarMortaNoFormulario() {
+  var p = S.planta;
+  if (!p) return;
+  var passaAMorta = !S.mortas[p.seq];
+
+  marcarMorta(passaAMorta).then(function () {
+    if (!passaAMorta) return;
+    var seguinte = seguinteNaFileira();
+    if (seguinte) {
+      abrirFormulario(seguinte);
+    } else {
+      S.digitos = '';
+      brinde(t('planta.fimFileira', { row: p.row }));
+      voltar('ecraPlanta');
+    }
   });
 }
 
@@ -1278,6 +1348,8 @@ function desenharFormulario() {
 
   alvo.appendChild(caixaNotas());
 
+  pintarBotaoMortaForm();
+
   $('btnEnviar').textContent = S.edicao ? t('form.guardarCorreccao') : t('form.guardar');
 
   /* Eliminar faz sentido para tudo o que já esteja na folha ou na fila deste
@@ -1304,15 +1376,10 @@ function caixaNotas() {
   return box;
 }
 
-/**
- * Anula um registo: os valores deste levantamento saem da folha e a planta
- * volta a contar como por fazer. Serve para quando se mediu a planta errada.
- * Vai pela mesma fila que os registos, por isso também funciona sem rede.
- */
-function eliminarRegisto() {
+/** O pedido de eliminação de uma planta, pronto a entrar na fila. */
+function pedidoEliminar(p, substitui) {
   var agora = agoraLocal();
-
-  var reg = {
+  return {
     uuid: uuid(),
     criadoEm: agora.ms,
     tsLocal: agora.texto,
@@ -1322,17 +1389,26 @@ function eliminarRegisto() {
     device: Def.get('aparelho', ''),
     mode: S.modo,
     ronda: S.modo === 'crescimento' ? Def.get('ronda', '') : '',
-    substitui: S.edicao ? S.edicao.uuid : '',
+    substitui: substitui || '',
     accao: 'eliminar',
-    seq: S.planta.seq,
-    pid: S.planta.pid,
-    row: S.planta.row,
-    noFileira: S.planta.noFileira,
-    noFolha: S.planta.noFolha,
-    source: S.planta.source,
+    seq: p.seq,
+    pid: p.pid,
+    row: p.row,
+    noFileira: p.noFileira,
+    noFolha: p.noFolha,
+    source: p.source,
     notas: '',
     values: {}
   };
+}
+
+/**
+ * Anula um registo: os valores deste levantamento saem da folha e a planta
+ * volta a contar como por fazer. Serve para quando se mediu a planta errada.
+ * Vai pela mesma fila que os registos, por isso também funciona sem rede.
+ */
+function eliminarRegisto() {
+  var reg = pedidoEliminar(S.planta, S.edicao ? S.edicao.uuid : '');
 
   return DB.guardar(reg).then(function () {
     brinde(t('form.eliminado', { pid: reg.pid }));
@@ -1548,8 +1624,11 @@ function abrirConfirmacao() {
   var lista = $('listaVazios');
   lista.innerHTML = '';
   v.vazios.forEach(function (c) {
+    /* Não basta listar o que está vazio: tem de se ver o que lá vai ficar
+     * escrito, senão o 0 e o X aparecem na folha sem ninguém ter percebido. */
     var li = document.createElement('li');
-    li.textContent = rotuloCampoLongo(c);
+    li.innerHTML = '<span>' + esc(rotuloCampoLongo(c)) + '</span>' +
+      '<b>' + esc(String(valorPorOmissao(c))) + '</b>';
     lista.appendChild(li);
   });
   det.hidden = !v.vazios.length;
@@ -1562,7 +1641,8 @@ function gravarRegisto() {
   var agora = agoraLocal();
   var vals = {};
   camposDe(S.modo).forEach(function (c) {
-    if (S.valores[c.chave] !== undefined) vals[c.chave] = S.valores[c.chave];
+    var v = S.valores[c.chave];
+    vals[c.chave] = (v === undefined || v === '') ? valorPorOmissao(c) : v;
   });
 
   var eu = Def.get('nome', '');
@@ -1589,11 +1669,27 @@ function gravarRegisto() {
     values: vals
   };
 
+  /* O alvo mudou a meio: o registo tem de sair da planta errada, senão fica
+   * lá a dizer que foi medida. Vai pela mesma fila, logo também funciona sem
+   * rede — e a ordem interessa: primeiro grava-se no sítio certo. */
+  var antigo = S.alvoOriginal;
+  var mudou = antigo && antigo.tinhaRegisto && antigo.planta.seq !== reg.seq;
+  if (mudou && !S.trocouAlvo) mudou = false;   // só depois de se ter trocado a planta de propósito
+
   return DB.guardar(reg).then(function () {
-    brinde(t(S.edicao ? 'form.correccaoGuardada' : 'form.guardado', { pid: reg.pid }));
+    if (!mudou) return;
+    return DB.guardar(pedidoEliminar(antigo.planta, S.edicao ? S.edicao.uuid : ''))
+      .then(function () {
+        delete S.feitas[antigo.planta.seq];
+        brinde(t('form.alvoCorrigido', { de: antigo.planta.pid, para: reg.pid }));
+      });
+  }).then(function () {
+    if (!mudou) brinde(t(S.edicao ? 'form.correccaoGuardada' : 'form.guardado', { pid: reg.pid }));
     S.feitas[reg.seq] = eu;
     S.edicao = null;
     S.notas = '';
+    S.alvoOriginal = null;
+    S.trocouAlvo = false;
     actualizarEstado();
     agendarEnvio();
 
@@ -1627,22 +1723,180 @@ function abrirFormulario(p) {
   S.planta = p;
   S.fileira = p.row;
   S.digitos = String(p.noFileira);
+  S.digitosAuto = true;
   S.valores = {};
   S.notas = '';
   S.edicao = null;
   var quem = S.feitas[p.seq];
   if (quem) S.edicao = { uuid: '', recorder: quem };
+  S.alvoOriginal = { planta: p, tinhaRegisto: !!quem };
   desenharFileiras();
   desenharFormulario();
   mostrar('ecraFormulario');
+  /* Se esta planta já foi medida, os valores que lá estão aparecem assim que
+   * a resposta chegar. Não se espera por eles: quem anda pela fileira não
+   * pode ficar parado à espera da rede em cada planta. */
+  if (quem) completarDoServidor(p);
 }
 
 // ---------------------------------------------------------------- registos
+
+/**
+ * A grelha das fileiras dentro do histórico.
+ *
+ * Quem vem ao histórico vem quase sempre corrigir UMA planta, e encontrá-la
+ * numa lista por data obrigava a percorrer tudo. Aqui escolhe-se a fileira e
+ * vê-se logo as plantas dela por ordem, com a marca de quem já tem registo.
+ * É a mesma grelha do ecrã de medição de propósito: um sítio a aprender, não
+ * dois. Carregar outra vez na mesma fileira fecha a lista.
+ */
+function desenharGrelhaHistorico() {
+  var g = $('grelhaFileirasHist');
+  if (!g) return;
+  g.innerHTML = '';
+  S.fileiras.forEach(function (f) {
+    var c = contarFileira(f.row);
+    var b = document.createElement('button');
+    b.innerHTML = f.row + '<span class="feito">' + c.feitas + '/' + c.total + '</span>';
+    b.className = (S.fileiraHist === f.row ? 'activo' : '') +
+      (c.tratadas === c.total ? ' completa' : '');
+    b.onclick = function () {
+      S.fileiraHist = (S.fileiraHist === f.row) ? null : f.row;
+      desenharGrelhaHistorico();
+      desenharPlantasDaFileira();
+    };
+    g.appendChild(b);
+  });
+}
+
+/** As plantas da fileira escolhida, por ordem, com o estado de cada uma. */
+function desenharPlantasDaFileira() {
+  var cx = $('plantasDaFileira');
+  if (!cx) return;
+  if (!S.fileiraHist) { cx.hidden = true; cx.innerHTML = ''; return; }
+
+  cx.hidden = false;
+  cx.innerHTML = '';
+
+  var lista = S.porFileira[S.fileiraHist] || [];
+  var ul = document.createElement('ul');
+  ul.className = 'listaEnvios plantasFileira';
+
+  for (var n = 1; n < lista.length; n++) {
+    (function (p) {
+      if (!p) return;
+      var quem = S.feitas[p.seq];
+      var li = document.createElement('li');
+      li.className = 'tocavel';
+      li.innerHTML =
+        '<span class="marca">' + (S.mortas[p.seq] ? '†' : (quem ? '✅' : '·')) + '</span>' +
+        '<span><b>' + esc(t('planta.detalhe', { row: p.row, no: p.noFileira })) + '</b>' +
+        '<br><small style="color:#a8b09a">' + esc(rotuloRef(p.source)) + ' ' +
+        esc(t('planta.noLote', { no: p.noFolha })) + ' · ' + esc(p.pid) + '</small></span>' +
+        '<span class="quando">' + esc(quem || '') + '</span>';
+      li.onclick = function () { abrirPlantaParaCorrigir(p); };
+      ul.appendChild(li);
+    })(lista[n]);
+  }
+  cx.appendChild(ul);
+}
+
+/**
+ * Abre uma planta para corrigir, com o que já lá está.
+ *
+ * Procura-se por esta ordem: a fila deste aparelho (é o mais recente e existe
+ * mesmo sem rede), depois o servidor. Se não houver registo nenhum, abre-se o
+ * formulário limpo — daqui também se pode registar uma planta que ficou por
+ * fazer.
+ */
+function abrirPlantaParaCorrigir(p) {
+  if (!S.modo) S.modo = 'descritores';
+  S.valores = {};
+  S.notas = '';
+  S.edicao = null;
+
+  DB.todos().then(function (l) {
+    var ronda = Def.get('ronda', '');
+    var meus = l.filter(function (e) {
+      return e.seq === p.seq && e.mode === S.modo && e.estado !== 'erro' && !e.accao &&
+             (S.modo !== 'crescimento' || e.ronda === ronda);
+    }).sort(function (a, b) { return b.criadoEm - a.criadoEm; });
+
+    if (meus.length) {
+      prepararEdicao(S.modo, meus[0].ronda, p, meus[0].values || {},
+                     meus[0].recorder, meus[0].uuid, meus[0].notas);
+      return;
+    }
+
+    var r = registoServidorDe(p);
+    if (r) { abrirDoServidor(r); return; }
+
+    // sem registo conhecido: formulário limpo, mas ainda se tenta o servidor
+    S.planta = p;
+    S.fileira = p.row;
+    S.digitos = String(p.noFileira);
+    S.digitosAuto = true;
+    S.alvoOriginal = { planta: p, tinhaRegisto: !!S.feitas[p.seq] };
+    if (S.feitas[p.seq]) S.edicao = { uuid: '', recorder: S.feitas[p.seq] };
+    desenharFormulario();
+    mostrar('ecraFormulario');
+    completarDoServidor(p);
+  });
+}
+
+/** O registo deste levantamento para esta planta, na cópia do servidor. */
+function registoServidorDe(p) {
+  return (S.registosServidor || []).filter(function (x) {
+    return x.pid === p.pid && x.mode === S.modo;
+  })[0] || null;
+}
+
+/**
+ * Vai buscar ao servidor os valores que já lá estão e preenche o que estiver
+ * em branco — sem esperar por rede nenhuma para abrir o formulário.
+ *
+ * Só se preenche o que continua vazio quando a resposta chega: se entretanto
+ * já se escreveu qualquer coisa, é isso que vale. Assim quem anda a medir não
+ * fica parado à espera da rede, e quem vem corrigir vê o que já está gravado
+ * em vez de um formulário em branco que ia apagar tudo com 0 e X.
+ */
+function completarDoServidor(p) {
+  if (!navigator.onLine || !configurado()) return;
+
+  var alvo = p.seq;
+  var pedir = S.registosServidor
+    ? Promise.resolve(registoServidorDe(p))
+    : pedirGet({ action: 'historico', limite: 200 }).then(function (j) {
+        S.registosServidor = j.registos;
+        return registoServidorDe(p);
+      });
+
+  pedir.then(function (r) {
+    if (!r) return;
+    return pedirGet({ action: 'registo', uuid: r.uuid }).then(function (j) {
+      // a pessoa pode ter mudado de planta enquanto a resposta vinha
+      if (!S.planta || S.planta.seq !== alvo) return;
+      var vals = (j.registo && j.registo.values) || {};
+      var mudou = false;
+      camposDe(S.modo).forEach(function (c) {
+        if (S.valores[c.chave] === undefined && vals[c.chave] !== undefined) {
+          S.valores[c.chave] = vals[c.chave];
+          mudou = true;
+        }
+      });
+      if (!S.notas && j.registo && j.registo.notas) { S.notas = j.registo.notas; mudou = true; }
+      if (!S.edicao) S.edicao = { uuid: r.uuid, recorder: j.registo.recorder };
+      if (mudou) { desenharFormulario(); brinde(t('form.jaEstavaGravado')); }
+    });
+  }).catch(function () {});
+}
 
 function desenharHistorico() {
   var ul = $('listaHistorico');
   var eu = Def.get('nome', '');
   pintarAvisoEnvio();
+  desenharGrelhaHistorico();
+  desenharPlantasDaFileira();
 
   if (S.abaHistorico === 'aparelho') {
     DB.todos().then(function (l) {
@@ -1753,12 +2007,14 @@ function prepararEdicao(modo, ronda, planta, valores, dono, uuidOriginal, notas)
   S.planta = planta;
   S.fileira = planta.row;
   S.digitos = String(planta.noFileira);
+  S.digitosAuto = true;
   S.valores = {};
   camposDe(modo).forEach(function (c) {
     if (valores[c.chave] !== undefined) S.valores[c.chave] = valores[c.chave];
   });
   S.notas = notas || '';
   S.edicao = { uuid: uuidOriginal, recorder: dono || Def.get('nome', '') };
+  S.alvoOriginal = { planta: planta, tinhaRegisto: true };
   desenharFormulario();
   mostrar('ecraFormulario');
 }
@@ -1787,15 +2043,20 @@ function abrirDoServidor(r) {
 function irParaEntrada() {
   $('inpNome').value = Def.get('nome', '');
   pintarAdmin();
-  reiniciarPilha();
   mostrar('ecraEntrada');
+  reiniciarPilha();
 }
 
 function irParaLevantamento() {
   $('ola').textContent = t('lev.ola', { nome: Def.get('nome', '') });
   pintarCartoes();
-  reiniciarPilha();
   mostrar('ecraLevantamento');
+  /* ⚠ Limpar DEPOIS de mostrar, não antes: o mostrar() empilha o ecrã de onde
+   * se vinha, e a seguir a um reiniciarPilha() isso deixava lá o formulário.
+   * Bastava depois voltar a entrar num formulário para a pilha ser cortada a
+   * zero (mostrar() corta ao reencontrar o mesmo ecrã) e o Voltar deixava de
+   * saber donde se tinha vindo. */
+  reiniciarPilha();
 }
 
 function abrirEcraPlanta() {
@@ -1967,9 +2228,19 @@ function ligarEventos() {
     (function (b) {
       b.onclick = function () {
         var tec = b.getAttribute('data-tecla');
-        if (tec === 'limpar') S.digitos = '';
-        else if (tec === 'apagar') S.digitos = S.digitos.slice(0, -1);
-        else if (S.digitos.length < 2) S.digitos = (S.digitos === '0' ? '' : S.digitos) + tec;
+        if (tec === 'limpar') {
+          S.digitos = '';
+        } else if (tec === 'apagar') {
+          S.digitos = S.digitos.slice(0, -1);
+        } else if (S.digitosAuto) {
+          /* O número que lá estava foi posto pela aplicação, não escrito por
+           * quem mede: a primeira tecla substitui-o. Sem isto, carregar no 2
+           * com o 1 já posto dava 12 e obrigava a apagar antes de escrever. */
+          S.digitos = tec;
+        } else if (S.digitos.length < 2) {
+          S.digitos = (S.digitos === '0' ? '' : S.digitos) + tec;
+        }
+        S.digitosAuto = false;
         resolverPlanta();
       };
     })(teclas[k]);
@@ -1982,11 +2253,31 @@ function ligarEventos() {
     marcarMorta(!S.mortas[S.planta.seq]);
   };
 
+  $('ligMortaForm').onclick = marcarMortaNoFormulario;
+
   $('btnPlanta').onclick = function () {
     var quem = S.feitas[S.planta.seq];
+
+    /* Veio-se do formulário só para acertar a planta: leva-se o que já estava
+     * escrito para a planta nova. O registo que ficou na planta errada é
+     * apagado ao gravar (ver gravarRegisto). */
+    if (S.mudarAlvo) {
+      S.mudarAlvo = false;
+      S.trocouAlvo = true;
+      S.edicao = quem ? { uuid: '', recorder: quem } : null;
+      desenharFormulario();
+      mostrar('ecraFormulario');
+      brinde(t('form.alvoTrocado', { pid: S.planta.pid }));
+      return;
+    }
+
     S.valores = {};
     S.notas = '';
     S.edicao = null;
+    /* ⚠ Tem de ficar aqui também, e não só no abrirFormulario: se ficar o alvo
+     * de uma planta anterior, ao gravar manda-se uma eliminação para essa —
+     * um registo bom apagado por engano. */
+    S.alvoOriginal = { planta: S.planta, tinhaRegisto: !!quem };
 
     if (quem) {
       // já existe registo: abrir em modo correcção, com os valores actuais
@@ -2019,10 +2310,17 @@ function ligarEventos() {
     mostrar('ecraFormulario');
   };
 
-  $('ligTrocarPlanta').onclick = function () { S.edicao = null; S.notas = ''; voltar('ecraPlanta'); };
+  $('ligTrocarPlanta').onclick = function () {
+    S.edicao = null; S.notas = ''; S.mudarAlvo = false;
+    S.alvoOriginal = null; S.trocouAlvo = false;
+    voltar('ecraPlanta');
+  };
 
-  // o cabeçalho do formulário é o botão para acertar a planta
+  /* O cabeçalho do formulário é o botão para acertar a planta. Vai-se escolher
+   * outra SEM perder o que já está escrito: se o engano foi o número da planta,
+   * as medidas continuam boas e é só mudá-las de sítio. */
   $('cabecalhoPlanta').onclick = function () {
+    S.mudarAlvo = true;
     desenharFileiras();
     resolverPlanta();
     mostrar('ecraPlanta');

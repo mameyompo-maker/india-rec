@@ -172,7 +172,7 @@ def main():
 
         reg = log_servidor()
         ok(len(reg) == 1, f"1 registo no servidor ({len(reg)})")
-        ok(reg[0]["accao"] == "Registo", f"marcado como Registo ({reg[0]['accao']})")
+        ok(reg[0]["accao"] == "Record", f"marcado como Record ({reg[0]['accao']})")
         ok(reg[0]["values"]["limboFoliar"] == 12.5, "virgula decimal convertida")
 
         print("\n[4] progresso")
@@ -211,7 +211,7 @@ def main():
         guardar_ate(pag, seq_seguinte=46)
         reg = log_servidor()
         ok(len(reg) == 2, f"2 linhas no log ({len(reg)})")
-        ok(reg[-1]["accao"] == "Correcção", f"segunda linha e Correccao ({reg[-1]['accao']})")
+        ok(reg[-1]["accao"] == "Correction", f"segunda linha e Correction ({reg[-1]['accao']})")
         ok(reg[-1]["substitui"], "guarda o ID do envio que substitui")
         ok(reg[-1]["values"]["limboFoliar"] == 14, "valor corrigido chegou")
 
@@ -274,7 +274,7 @@ def main():
 
         reg = log_servidor()
         ok(reg[-1]["estado"] == "OK", f"o servidor aceitou ({reg[-1]['estado'][:60]})")
-        ok(reg[-1]["accao"] == "Correcção", "registada como correccao")
+        ok(reg[-1]["accao"] == "Correction", "registada como correccao")
         ok(reg[-1]["recorder"] == "Cheia", "fica registado quem fez a correccao")
 
         print("\n[10] sem administrador a correccao alheia passa na mesma")
@@ -411,7 +411,7 @@ def main():
         pag.wait_for_timeout(1000)
         reg = log_servidor()
         ok(len(reg) == antes + 1, f"a eliminacao chegou ao servidor ({len(reg)})")
-        ok(reg[-1]["accao"] == "Eliminação", f"gravada como Eliminação ({reg[-1]['accao']})")
+        ok(reg[-1]["accao"] == "Deletion", f"gravada como Deletion ({reg[-1]['accao']})")
         escolher_seq(pag, 75)
         ok("já registada" not in pag.inner_text("#resolvidoPlanta"),
            "a planta volta a contar como por registar")
@@ -468,7 +468,7 @@ def main():
         pag.wait_for_timeout(1200)
         reg = log_servidor()
         ok(len(reg) == antes + 1, "a marca chegou ao servidor")
-        ok(reg[-1]["accao"] == "Planta morta", f"gravada como Planta morta ({reg[-1]['accao']})")
+        ok(reg[-1]["accao"] == "Dead plant", f"gravada como Dead plant ({reg[-1]['accao']})")
         ok("morta" in pag.inner_text("#resolvidoPlanta"), "o ecra assinala a planta morta")
 
         pag.click("#ligProximaPorFazer")
@@ -480,7 +480,7 @@ def main():
         pag.click("#ligMorta")
         pag.wait_for_timeout(1200)
         reg = log_servidor()
-        ok(reg[-1]["accao"] == "Planta viva", f"desmarcar fica registado ({reg[-1]['accao']})")
+        ok(reg[-1]["accao"] == "Live plant", f"desmarcar fica registado ({reg[-1]['accao']})")
 
         print("\n[21] Voltar vai ao ecra anterior")
         voltar(pag)
@@ -636,7 +636,112 @@ def main():
            f"e o aviso deixa de acusar o codigo ({desapareceu!r})")
         voltar(pag)
 
-        print("\n[25] service worker e erros de JS")
+        print("\n[25] a tecla substitui o 1 que a fileira poe")
+        pag.evaluate("irParaLevantamento()")
+        pag.wait_for_selector("#ecraLevantamento:not([hidden])")
+        pag.click('.cartao[data-modo="descritores"]')
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
+        pag.locator('#grelhaFileiras button:has-text("r03")').first.click()
+        pag.wait_for_timeout(200)
+        ok(pag.inner_text("#visorNumero").strip() == "1", "a fileira poe o 1")
+        pag.locator('#teclado button[data-tecla="2"]').click()
+        ok(pag.inner_text("#visorNumero").strip() == "2",
+           f"carregar no 2 da 2 e nao 12 ({pag.inner_text('#visorNumero')!r})")
+        pag.locator('#teclado button[data-tecla="5"]').click()
+        ok(pag.inner_text("#visorNumero").strip() == "25",
+           f"a segunda tecla ja acrescenta ({pag.inner_text('#visorNumero')!r})")
+
+        print("\n[26] marcar a planta morta sem sair do formulario")
+        abrir_form(pag, 120)
+        ok(pag.locator("#ligMortaForm").is_visible(), "o botao esta no topo do formulario")
+        antes = len(log_servidor())
+        pag.click("#ligMortaForm")
+        pag.wait_for_function("p => document.getElementById('tituloForm').textContent === p",
+                              arg=pid(121), timeout=6000)
+        pag.wait_for_timeout(1200)
+        reg = log_servidor()
+        ok(len(reg) == antes + 1 and reg[-1]["accao"] == "Dead plant",
+           f"a marca chegou e passou-se a planta seguinte ({reg[-1]['accao']})")
+
+        print("\n[27] o que fica em branco vai como 0 e X")
+        pag.click("#ligTrocarPlanta")
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
+        abrir_form(pag, 130)
+        pag.fill("#campo_limboFoliar", "7")
+        pag.click("#btnEnviar")
+        pag.wait_for_selector("#dlgIncompleto[open]")
+        pag.click("#detalheVazios summary")
+        vazios = pag.inner_text("#listaVazios")
+        ok("0" in vazios and "X" in vazios,
+           f"a confirmacao diz o que la vai ficar ({vazios[:60]!r})")
+        pag.click("#btnEnviarAssim")
+        pag.wait_for_timeout(1500)
+        v = log_servidor()[-1]["values"]
+        ok(v["limboFoliar"] == 7, "o que se mediu vai como foi medido")
+        ok(v["frutoComprimento"] == 0, f"as medidas vazias vao a 0 ({v.get('frutoComprimento')})")
+        ok(v["habitoCrescimento"] == "X", f"as escolhas vazias vao a X ({v.get('habitoCrescimento')})")
+
+        print("\n[28] trocar de planta a meio leva o que ja esta escrito")
+        # regista-se na planta errada...
+        pag.click("#ligTrocarPlanta")
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
+        abrir_form(pag, 138)
+        pag.fill("#campo_limboFoliar", "3,5")
+        guardar_ate(pag, seq_seguinte=139)
+        ok(any(r["pid"] == pid(138) for r in log_servidor()), "a planta 138 ficou registada")
+
+        # ...e agora corrige-se o alvo sem voltar a medir
+        pag.click("#ligTrocarPlanta")
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
+        abrir_form(pag, 138)
+        ok(pag.input_value("#campo_limboFoliar") == "3,5", "abre com o que la estava")
+        pag.click("#cabecalhoPlanta")
+        pag.wait_for_selector("#ecraPlanta:not([hidden])")
+        escolher_seq(pag, 200)
+        pag.click("#btnPlanta")
+        pag.wait_for_selector("#ecraFormulario:not([hidden])")
+        ok(pid(200) in pag.inner_text("#tituloForm"), "o formulario passou para a planta 200")
+        ok(pag.input_value("#campo_limboFoliar") == "3,5",
+           f"e a medida veio junto ({pag.input_value('#campo_limboFoliar')!r})")
+
+        antes = len(log_servidor())
+        confirmar(pag)
+        pag.wait_for_timeout(2500)
+        reg = log_servidor()
+        novos = reg[antes:]
+        ok(len(novos) == 2, f"foram dois: gravar em 200 e limpar 138 ({len(novos)})")
+        ok(any(r["pid"] == pid(200) and r["accao"] in ("Record", "Correction") for r in novos),
+           "a medida ficou na planta 200")
+        ok(any(r["pid"] == pid(138) and r["accao"] == "Deletion" for r in novos),
+           "e saiu da planta 138")
+
+        print("\n[29] o historico procura-se pela fileira")
+        pag.evaluate("irParaLevantamento()")
+        pag.wait_for_selector("#ecraLevantamento:not([hidden])")
+        pag.click("#ligHistorico")
+        pag.wait_for_selector("#ecraHistorico:not([hidden])")
+        ok(pag.locator("#grelhaFileirasHist button").count() == 16,
+           "a grelha das 16 fileiras esta la")
+        ok(pag.locator("#plantasDaFileira").is_hidden(), "as plantas so aparecem depois de escolher")
+
+        fila, no = fileira_de(200)
+        pag.locator('#grelhaFileirasHist button:has-text("%s")' % fila).first.click()
+        pag.wait_for_timeout(300)
+        ok(not pag.locator("#plantasDaFileira").is_hidden(), "escolher a fileira mostra as plantas")
+        alvo = pag.locator('#plantasDaFileira li:has-text("%s")' % pid(200)).first
+        ok(alvo.count() > 0, "a planta 200 esta na lista da fileira dela")
+        alvo.click()
+        pag.wait_for_selector("#ecraFormulario:not([hidden])")
+        pag.wait_for_timeout(800)
+        ok(pid(200) in pag.inner_text("#tituloForm"), "abriu a planta certa")
+        ok(pag.input_value("#campo_limboFoliar") == "3,5",
+           f"com o que ja la estava gravado ({pag.input_value('#campo_limboFoliar')!r})")
+        pag.click("#ligTrocarPlanta")
+        pag.wait_for_timeout(600)
+        onde = pag.evaluate("S.ecra")
+        ok(onde == "ecraHistorico", f"Voltar leva de volta ao historico ({onde})")
+
+        print("\n[30] service worker e erros de JS")
         ok(pag.evaluate("navigator.serviceWorker.controller ? 1 : 0") == 1, "service worker activo")
         reais = [e for e in erros if "favicon" not in e.lower()]
         ok(not reais, f"sem erros de JS ({reais[:3]})")

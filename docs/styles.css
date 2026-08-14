@@ -346,7 +346,17 @@ textarea:focus { outline: none; border-color: var(--acento); }
   white-space: nowrap;
 }
 .idPlanta { display: block; font-size: 14px; font-weight: 700; }
-.posFileira { display: block; color: var(--txt2); font-size: 13px; }
+/* A fileira e o numero dentro dela sao a segunda forma de conferir a planta —
+   a etiqueta no campo tem o numero da linhagem, o mapa tem a fileira. A 13px e
+   em cinzento nao se liam ao sol, e era preciso adivinhar. */
+.posFileira { display: block; color: var(--txt); font-size: 16px; font-weight: 700; }
+.posFileira .sentido {
+  display: block;
+  color: var(--txt2);
+  font-size: 12px;
+  font-weight: 400;
+  margin-top: 2px;
+}
 .jaFeita { color: var(--acento); font-size: 13px; }
 .marcaMorta { color: var(--aviso); font-weight: 700; font-size: 13px; }
 
@@ -674,3 +684,30 @@ details#blocoAdmin[open] { padding-bottom: 16px; }
   color: var(--txt);
 }
 #listaEliminar li { margin: 2px 0; }
+
+/* Planta morta, a partir do formulário. Discreto — é o caso raro — mas com
+   área de toque a sério, porque se usa com o telemóvel numa mão. */
+.mortaForm {
+  display: block;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 10px;
+  text-align: center;
+  border: 1px dashed var(--linha);
+  border-radius: 10px;
+  color: var(--txt2);
+  font-size: 14px;
+}
+.mortaForm.activo {
+  border-style: solid;
+  border-color: var(--aviso);
+  color: var(--aviso);
+  font-weight: 700;
+}
+
+/* As plantas de uma fileira, dentro do histórico. Linhas altas: escolhe-se com
+   o polegar, muitas vezes com luva. */
+.plantasFileira { margin-top: 10px; max-height: 46vh; overflow-y: auto; }
+.plantasFileira li { padding: 12px 10px; }
+.plantasFileira .marca { min-width: 22px; text-align: center; }
+#grelhaFileirasHist { margin-bottom: 4px; }

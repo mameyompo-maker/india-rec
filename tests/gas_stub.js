@@ -43,6 +43,14 @@ function criarFolha(nome, linhas, colunas) {
       return folha;
     },
 
+    insertRowsAfter: function (depois, quantas) {
+      var largura = celulas[0].length;
+      for (var k = 0; k < quantas; k++) {
+        celulas.splice(depois + k, 0, new Array(largura).fill(''));
+      }
+      return folha;
+    },
+
     setFrozenRows: function (n) { folha.frozen = n; return folha; },
 
     getRange: function (r, c, nr, nc) {
@@ -96,8 +104,11 @@ var SpreadsheetApp = {
     return {
       getName: function () { return 'NBF(Tanheia)26 (falso)'; },
       getSheetByName: function (n) { return LIVRO.folhas[n] || null; },
+      /* Como no Apps Script a serio: uma folha nova nasce com 1000x26. Se isto
+       * mentir (era 200x60), quem escrever 39 colunas numa folha nova passa nos
+       * testes e rebenta na folha verdadeira. */
       insertSheet: function (n) {
-        LIVRO.folhas[n] = criarFolha(n, 200, 60);
+        LIVRO.folhas[n] = criarFolha(n, 1000, 26);
         return LIVRO.folhas[n];
       }
     };

@@ -148,6 +148,12 @@
     <span class="trocar" data-t="form.trocarPlanta"></span>
   </button>
   <div id="avisoEdicao" class="aviso" hidden></div>
+
+  <!-- Marcar a planta morta sem ter de recuar ao ecrã do número: quando se vai
+       a andar pela fileira, a planta seguinte já vem aberta e dar meia-volta só
+       para dizer que está morta custava três toques. -->
+  <button class="ligacao mortaForm" id="ligMortaForm"></button>
+
   <div id="camposForm"></div>
 
   <button class="ligacao" id="ligTrocarPlanta" data-t="geral.voltar"></button>
@@ -172,6 +178,13 @@
 <section class="ecra" id="ecraHistorico" hidden>
   <h1 data-t="hist.titulo"></h1>
   <p class="sub" id="subHistorico"></p>
+
+  <!-- Procurar pela planta, e não pela ordem em que foi gravada. Quem vem
+       aqui vem quase sempre corrigir uma planta concreta, e percorrer uma
+       lista por data para a encontrar era o que estava a custar. A grelha é a
+       mesma do ecrã de medição, para não haver dois sítios a aprender. -->
+  <div class="grelhaFileiras" id="grelhaFileirasHist"></div>
+  <div id="plantasDaFileira" hidden></div>
 
   <div class="abas" id="abasHistorico">
     <button class="aba activo" data-aba="aparelho" data-t="hist.aparelho"></button>

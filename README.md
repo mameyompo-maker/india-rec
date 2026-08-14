@@ -189,7 +189,7 @@ Google Apps Script(ウェブアプリ)
   測定値の列には何も書かない。Crescimento / Descritores のどちらで印を付けても同じ扱い
 - 印の付いた株は「未登録」の一覧から外れ、`Saltar para a próxima por fazer` も飛ばす
 - もう一度押すと取り消せる(`† morta — desmarcar`)。`Log` には
-  `Planta morta` / `Planta viva` の行が残る
+  `Dead plant` / `Live plant` の行が残る
 - **圏外でも押せる。** ほかの登録と同じキューに入る
 
 ## 権限と修正
@@ -205,8 +205,8 @@ Google Apps Script(ウェブアプリ)
   一覧では「Cheia · corrigido por Joana」と表示される
 - **管理者モード**はログイン画面の「Modo administrador」から。書き込みの可否には
   もう関係しないが、仕組みは残してある(**12時間で自動的に切れる**)
-- `Log` シートには毎回1行増え、`Ação` 列に `Registo` / `Correcção` / `Eliminação` /
-  `Planta morta` / `Planta viva`、`Substitui o envio` 列に修正元の送信IDが入る
+- `Log` シートには毎回1行増え、`Action` 列に `Record` / `Correction` / `Deletion` /
+  `Dead plant` / `Live plant`、`Replaces submission` 列に修正元の送信IDが入る
 
 ## 登録の取り消し(Eliminar)
 
@@ -409,14 +409,31 @@ G〜M の既存ブロック(`5 month after planting (20260511)`)は上書きし�
 置き換えた。旧ヘッダーは行1のみでデータ行は無かったため、失われたデータは無い。
 
 `Log` の列構成は Data の列位置に依存しないので、2026-08-09 の D列挿入では変わっていない。
-ただし `Levantamento` 列に入る文字列は `Crescimento (G-M)` / `Descritores (N-Z)` に変わった。
-読み戻しは先頭一致(`Crescimento` で始まるか)で判定しているので、旧表記の行も正しく読める。
 
-構成: `Data/hora (aparelho)` / `Data/hora (servidor)` / `Registado por` / `Ação` /
-`Levantamento` / `Ronda` / `Plant ID` / `Fileira` / `N.º na fileira` / `N.º na folha` /
-`Lote` / `Linha em Data` + 測定20項目 + `ID do envio` / `Substitui o envio` /
-`Aparelho` / `Estado` + `Notas` / `Estado da planta` / `N.º de referência`。
+**2026-08-15 に、シートへ書き込む文字列を全部英語にした。**シートを読むのは現場ではなく
+研究側なので、ポルトガル語である必要がない(端末の画面は今までどおりポルトガル語)。
+**列の数・順番・意味は1つも変えていない。変わったのは表示される文字だけ。**
+
+構成: `Timestamp (device)` / `Timestamp (server)` / `Recorded by` / `Action` /
+`Survey` / `Round` / `Plant ID` / `Row` / `No. in row` / `No. in sheet` /
+`Source` / `Row in Data` + 測定20項目 + `Submission ID` / `Replaces submission` /
+`Device` / `Status` + `Notes` / `Plant status` / `Reference no.`。
 **計39列。**
+
+| 列 | 2026-08-14 まで | 2026-08-15 から |
+|---|---|---|
+| `Action` | `Registo` / `Correcção` / `Eliminação` / `Planta morta` / `Planta viva` | `Record` / `Correction` / `Deletion` / `Dead plant` / `Live plant` |
+| `Survey` | `Crescimento (G-M)` / `Descritores (N-Z)` | `Growth (G-M)` / `Descriptors (N-Z)` |
+| `Status` | `OK` / `ERRO: …` | `OK` / `ERROR: …` |
+
+測定値そのもの(`Horizontal` / `Light green` / `Dead`)は最初から英語なので変更なし。
+
+**旧表記の行は読めなくなっていない。** 8/14 までの433行はポルトガル語のまま書かれており、
+`accaoCanonica_()` と `modoDoRotulo_()` が両方の表記を受け付ける。これが無いと、
+`Planta morta` と記録された株308・406が「生きている」扱いに戻ってしまう。
+**既存行も英語に揃えたい場合は、Apps Script エディタから `traduzirLogParaIngles()` を
+1回実行する**(実行前にシート全体のバックアップタブを自動生成する。何度実行しても安全)。
+ヘッダー行は次のリクエストが来た時点で `garantirLog_()` が自動で書き換える。
 
 **⚠ 2026-08-12 に足した3列は、いちばん右(`Estado` の後ろ)に置いてある。**
 本当は値の隣に置きたかったが、`Log` には既に記録された行があり、途中に列を挟むと
@@ -424,8 +441,8 @@ G〜M の既存ブロック(`5 month after planting (20260511)`)は上書きし�
 `N.º de referência` は端末が送ってきた値ではなく **株番号から計算している**ので、
 この機能より前に作られた送信待ちの記録にも正しい番号が入る。
 
-`Ação` が `Correcção` の行は修正で、`Substitui o envio` に修正元の送信IDが入る。
-`Estado` が `ERRO: …` の行は書き込みが拒否された記録(値の不正など)。
+`Action` が `Correction` の行は修正で、`Replaces submission` に修正元の送信IDが入る。
+`Status` が `ERROR: …` の行は書き込みが拒否された記録(値の不正など)。
 
 ---
 

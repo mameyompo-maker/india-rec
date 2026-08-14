@@ -30,7 +30,7 @@ var TOTAL_PLANTAS = 415;
  * nao se distingue "colei mal" de "implantei a versao antiga".
  * Subir sempre que o Codigo.gs for alterado.
  */
-var VERSAO_CODIGO = '2026-08-12a';
+var VERSAO_CODIGO = '2026-08-15b';
 
 /**
  * COMPATIBILIDADE (2026-08-12) — LER ANTES DE MEXER.
@@ -51,9 +51,30 @@ function getToken() { return prop_('TOKEN', 'jatropha'); }
 function getAdminPassword() { return prop_('ADMIN_PASSWORD', 'IndiaRec2026'); }
 
 /**
- * Como os valores de escolha ficam gravados na folha. A folha e um conjunto de
- * dados em ingles, por isso gravamos em ingles e mostramos portugues no ecra.
+ * IDIOMA DO QUE SE ESCREVE NA FOLHA (2026-08-15) — LER ANTES DE MEXER.
+ *
+ * A folha de calculo e um conjunto de dados em ingles e quem a le nao e o campo:
+ * TUDO o que este ficheiro escreve nas folhas Data e Log vai em INGLES. Isto
+ * inclui os cabecalhos, os valores da coluna Action, os da coluna Survey e o
+ * texto de erro da coluna Status.
+ *
+ * O ecra do telemovel continua em portugues (docs/india/i18n.js) — sao coisas
+ * separadas e assim continuam.
+ *
+ * Ate 2026-08-14 escrevia-se portugues. As 433 linhas ja gravadas com
+ * 'Registo' / 'Descritores (N-Z)' / 'Planta morta' tem de continuar a ser
+ * lidas, por isso quem le compara sempre pela forma canonica — ver
+ * accaoCanonica_() e modoDoRotulo_(). Para traduzir tambem as linhas antigas
+ * ha traduzirLogParaIngles(), que se corre uma vez a partir do editor.
  */
+
+/** Como os valores de escolha ficam gravados na folha. */
+/* O que se grava num campo de escolha que ficou por preencher. Uma celula
+ * vazia nao distingue "a planta nao tem" de "ninguem la foi"; o X quer dizer a
+ * primeira coisa. Nas medidas e contagens o equivalente e 0, que passa pelo
+ * caminho numerico sem precisar de nada de especial. */
+var SEM_MEDIDA = 'X';
+
 var VALOR_HABITO = { horizontal: 'Horizontal', vertical: 'Vertical' };
 var VALOR_COR = {
   verdeClaro: 'Light green',
@@ -68,29 +89,29 @@ var VALOR_COR = {
  * REVERSAO: se o campo "Branch" for retirado da folha, apagar a linha de 'ramos',
  * baixar 1 em cada col abaixo dela, e por ROTULO_MODO de volta a (G-L)/(M-Y). */
 var CAMPOS_CRESCIMENTO = [
-  { chave: 'alturaPlanta',  col: 7,  rotulo: 'Altura da planta (m)',            tipo: 'num' },
-  { chave: 'cnp1',          col: 8,  rotulo: 'Cnp-1 (m)',                       tipo: 'num' },
-  { chave: 'cnp2',          col: 9,  rotulo: 'Cnp-2 (m)',                       tipo: 'num' },
-  { chave: 'ramos',         col: 10, rotulo: 'Ramos (n.º)',                     tipo: 'int' },
-  { chave: 'cachosFrutos',  col: 11, rotulo: 'Cachos de frutos (n.º)',          tipo: 'int' },
-  { chave: 'cachosFlores',  col: 12, rotulo: 'Cachos de flores (n.º)',          tipo: 'int' },
-  { chave: 'cachosBotoes',  col: 13, rotulo: 'Cachos de botões florais (n.º)',  tipo: 'int' }
+  { chave: 'alturaPlanta',  col: 7,  rotulo: 'Plant height (m)',          tipo: 'num' },
+  { chave: 'cnp1',          col: 8,  rotulo: 'Cnp-1 (m)',                 tipo: 'num' },
+  { chave: 'cnp2',          col: 9,  rotulo: 'Cnp-2 (m)',                 tipo: 'num' },
+  { chave: 'ramos',         col: 10, rotulo: 'Branches (no.)',            tipo: 'int' },
+  { chave: 'cachosFrutos',  col: 11, rotulo: 'Fruit bunches (no.)',       tipo: 'int' },
+  { chave: 'cachosFlores',  col: 12, rotulo: 'Flower bunches (no.)',      tipo: 'int' },
+  { chave: 'cachosBotoes',  col: 13, rotulo: 'Flower bud bunches (no.)',  tipo: 'int' }
 ];
 
 var CAMPOS_DESCRITORES = [
-  { chave: 'habitoCrescimento',  col: 14, rotulo: 'Hábito de crescimento',              tipo: 'habito' },
-  { chave: 'limboFoliar',        col: 15, rotulo: 'Limbo foliar (cm)',                  tipo: 'num' },
-  { chave: 'peciolo',            col: 16, rotulo: 'Pecíolo (cm)',                       tipo: 'num' },
-  { chave: 'folhaComprimento',   col: 17, rotulo: 'Folha - comprimento (cm)',           tipo: 'num' },
-  { chave: 'folhaLargura',       col: 18, rotulo: 'Folha - largura (cm)',               tipo: 'num' },
-  { chave: 'lobulosFolha',       col: 19, rotulo: 'Lóbulos da folha (n.º)',             tipo: 'int' },
-  { chave: 'corInflorMasc',      col: 20, rotulo: 'Cor da inflorescência - masculina',  tipo: 'cor' },
-  { chave: 'corInflorFem',       col: 21, rotulo: 'Cor da inflorescência - feminina',   tipo: 'cor' },
-  { chave: 'corFruto',           col: 22, rotulo: 'Cor do fruto',                       tipo: 'cor' },
-  { chave: 'frutoComprimento',   col: 23, rotulo: 'Comprimento do fruto (cm)',          tipo: 'num' },
-  { chave: 'frutoLargura',       col: 24, rotulo: 'Largura do fruto (cm)',              tipo: 'num' },
-  { chave: 'sementeComprimento', col: 25, rotulo: 'Comprimento da semente (cm)',        tipo: 'num' },
-  { chave: 'sementeLargura',     col: 26, rotulo: 'Largura da semente (cm)',            tipo: 'num' }
+  { chave: 'habitoCrescimento',  col: 14, rotulo: 'Growth habit',                 tipo: 'habito' },
+  { chave: 'limboFoliar',        col: 15, rotulo: 'Leaf blade (cm)',              tipo: 'num' },
+  { chave: 'peciolo',            col: 16, rotulo: 'Petiole (cm)',                 tipo: 'num' },
+  { chave: 'folhaComprimento',   col: 17, rotulo: 'Leaf length (cm)',             tipo: 'num' },
+  { chave: 'folhaLargura',       col: 18, rotulo: 'Leaf width (cm)',              tipo: 'num' },
+  { chave: 'lobulosFolha',       col: 19, rotulo: 'Leaf lobes (no.)',             tipo: 'int' },
+  { chave: 'corInflorMasc',      col: 20, rotulo: 'Inflorescence colour - male',  tipo: 'cor' },
+  { chave: 'corInflorFem',       col: 21, rotulo: 'Inflorescence colour - female', tipo: 'cor' },
+  { chave: 'corFruto',           col: 22, rotulo: 'Fruit colour',                 tipo: 'cor' },
+  { chave: 'frutoComprimento',   col: 23, rotulo: 'Fruit length (cm)',            tipo: 'num' },
+  { chave: 'frutoLargura',       col: 24, rotulo: 'Fruit width (cm)',             tipo: 'num' },
+  { chave: 'sementeComprimento', col: 25, rotulo: 'Seed length (cm)',             tipo: 'num' },
+  { chave: 'sementeLargura',     col: 26, rotulo: 'Seed width (cm)',              tipo: 'num' }
 ];
 
 /** Primeira coluna do 1.º bloco de ronda em Data (G). A..F sao identificacao. */
@@ -190,13 +211,13 @@ var TODOS_CAMPOS = CAMPOS_CRESCIMENTO.concat(CAMPOS_DESCRITORES);
  * tudo o que estava a direita nessas linhas. Colunas novas so no fim.
  */
 var CABECALHO_LOG = [
-  'Data/hora (aparelho)', 'Data/hora (servidor)', 'Registado por', 'Acção',
-  'Levantamento', 'Ronda', 'Plant ID', 'Fileira', 'N.º na fileira', 'N.º na folha',
-  'Lote', 'Linha em Data'
+  'Timestamp (device)', 'Timestamp (server)', 'Recorded by', 'Action',
+  'Survey', 'Round', 'Plant ID', 'Row', 'No. in row', 'No. in sheet',
+  'Source', 'Row in Data'
 ].concat(
   TODOS_CAMPOS.map(function (c) { return c.rotulo; }),
-  ['ID do envio', 'Substitui o envio', 'Aparelho', 'Estado',
-   'Notas', 'Estado da planta', 'N.º de referência']
+  ['Submission ID', 'Replaces submission', 'Device', 'Status',
+   'Notes', 'Plant status', 'Reference no.']
 );
 
 // indices 1-based dentro da folha Log
@@ -213,23 +234,52 @@ var COL_NOTAS = COL_ESTADO + 1;                    // AK = 37
 var COL_ESTADO_PLANTA = COL_ESTADO + 2;            // AL = 38
 var COL_REF = COL_ESTADO + 3;                      // AM = 39
 
-var ROTULO_MODO = { crescimento: 'Crescimento (G-M)', descritores: 'Descritores (N-Z)' };
+var ROTULO_MODO = { crescimento: 'Growth (G-M)', descritores: 'Descriptors (N-Z)' };
 
+/* O que fica escrito na coluna Action. */
+var ACCAO_REGISTO = 'Record';
+var ACCAO_CORRECCAO = 'Correction';
 /** Acção gravada no Log quando alguém anula um registo. */
-var ACCAO_ELIMINAR = 'Eliminação';
+var ACCAO_ELIMINAR = 'Deletion';
 
 /* Marcas de planta morta/viva. Nao sao registos de levantamento: ficam no Log e
  * na coluna "Plant status" da Data, mas nao entram no indice de registos. */
-var ACCAO_MORTA = 'Planta morta';
-var ACCAO_VIVA = 'Planta viva';
+var ACCAO_MORTA = 'Dead plant';
+var ACCAO_VIVA = 'Live plant';
+
+/** Prefixo da coluna Status quando o envio foi recusado. */
+var PREFIXO_ERRO = 'ERROR: ';
 
 /**
- * Le o modo a partir do texto gravado na coluna Levantamento do Log.
+ * Texto da coluna Action -> forma canonica, aceitando o portugues das linhas
+ * gravadas ate 2026-08-14. Sem isto, marcar a planta 308 como morta deixava de
+ * ser reconhecido e a planta voltava a contar como viva.
+ */
+var ACCAO_ANTIGA = {
+  'Registo': ACCAO_REGISTO,
+  'Correcção': ACCAO_CORRECCAO,
+  'Correccao': ACCAO_CORRECCAO,
+  'Eliminação': ACCAO_ELIMINAR,
+  'Eliminacao': ACCAO_ELIMINAR,
+  'Planta morta': ACCAO_MORTA,
+  'Planta viva': ACCAO_VIVA
+};
+
+function accaoCanonica_(texto) {
+  var s = String(texto == null ? '' : texto).trim();
+  return ACCAO_ANTIGA.hasOwnProperty(s) ? ACCAO_ANTIGA[s] : s;
+}
+
+/**
+ * Le o modo a partir do texto gravado na coluna Survey do Log.
  * Compara so o prefixo: as letras das colunas ja mudaram uma vez (F-K -> G-L) e
- * podem voltar a mudar, e as linhas antigas do Log tem de continuar a ser lidas.
+ * podem voltar a mudar, e as linhas antigas do Log tem de continuar a ser lidas
+ * — dai aceitar tambem o 'Crescimento' que se escrevia ate 2026-08-14.
  */
 function modoDoRotulo_(levant) {
-  return String(levant || '').indexOf('Crescimento') === 0 ? 'crescimento' : 'descritores';
+  var s = String(levant || '');
+  return (s.indexOf('Growth') === 0 || s.indexOf('Crescimento') === 0)
+    ? 'crescimento' : 'descritores';
 }
 
 // ---------------------------------------------------------------- utilitarios
@@ -274,20 +324,21 @@ function normalizar_(campo, bruto) {
 
   if (campo.tipo === 'num' || campo.tipo === 'int') {
     var n = Number(s.replace(',', '.'));
-    if (!isFinite(n)) throw new Error('Valor não numérico em "' + campo.rotulo + '": ' + s);
+    if (!isFinite(n)) throw new Error('Non-numeric value in "' + campo.rotulo + '": ' + s);
     if (campo.tipo === 'int' && Math.round(n) !== n) {
-      throw new Error('"' + campo.rotulo + '" tem de ser um número inteiro: ' + s);
+      throw new Error('"' + campo.rotulo + '" must be a whole number: ' + s);
     }
-    if (n < 0) throw new Error('"' + campo.rotulo + '" não pode ser negativo: ' + s);
+    if (n < 0) throw new Error('"' + campo.rotulo + '" cannot be negative: ' + s);
     return n;
   }
-  if (campo.tipo === 'habito') {
-    if (!VALOR_HABITO.hasOwnProperty(s)) throw new Error('Hábito inválido: ' + s);
-    return VALOR_HABITO[s];
-  }
-  if (campo.tipo === 'cor') {
-    if (!VALOR_COR.hasOwnProperty(s)) throw new Error('Cor inválida: ' + s);
-    return VALOR_COR[s];
+  if (campo.tipo === 'habito' || campo.tipo === 'cor') {
+    if (s === SEM_MEDIDA) return SEM_MEDIDA;      // esteve la e nao havia
+    var mapa = campo.tipo === 'habito' ? VALOR_HABITO : VALOR_COR;
+    if (!mapa.hasOwnProperty(s)) {
+      throw new Error((campo.tipo === 'habito' ? 'Invalid growth habit: '
+                                               : 'Invalid colour: ') + s);
+    }
+    return mapa[s];
   }
   return s;
 }
@@ -296,6 +347,9 @@ function normalizar_(campo, bruto) {
 function desnormalizar_(campo, valor) {
   if (valor === '' || valor === null || valor === undefined) return undefined;
   if (campo.tipo === 'habito' || campo.tipo === 'cor') {
+    /* O X volta como "nada escolhido": no ecra nao ha opcao para ele, e se o
+     * registo for gravado outra vez em branco volta a sair X. */
+    if (String(valor) === SEM_MEDIDA) return undefined;
     var mapa = campo.tipo === 'habito' ? VALOR_HABITO : VALOR_COR;
     for (var k in mapa) if (mapa[k] === String(valor)) return k;
     return undefined;
@@ -429,7 +483,8 @@ function lerIndice_(log) {
 
     var modo = modoDoRotulo_(levant);
     var k = chave_(modo, ronda, pid);
-    var acc = String(meta[i][1]).trim();
+    // canonica: as linhas ate 2026-08-14 tem a accao escrita em portugues
+    var acc = accaoCanonica_(meta[i][1]);
 
     /* Marcar a planta como morta (ou desmarcar) nao e um registo de medicao:
      * fica no Log e na coluna "Plant status", mas nao entra no indice nem
@@ -463,7 +518,7 @@ function doPost(e) {
   try {
     lock.waitLock(30000);
   } catch (err) {
-    return jsonOut_({ ok: false, erro: 'Servidor ocupado, tente outra vez.' });
+    return jsonOut_({ ok: false, erro: 'Server busy, please try again.' });
   }
 
   try {
@@ -471,11 +526,11 @@ function doPost(e) {
     try {
       pedido = JSON.parse(e.postData.contents);
     } catch (err) {
-      return jsonOut_({ ok: false, erro: 'JSON inválido.' });
+      return jsonOut_({ ok: false, erro: 'Invalid JSON.' });
     }
 
     if (!getToken() || pedido.token !== getToken()) {
-      return jsonOut_({ ok: false, erro: 'Não autorizado.', versao: VERSAO_CODIGO });
+      return jsonOut_({ ok: false, erro: 'Unauthorized.', versao: VERSAO_CODIGO });
     }
 
     /* Desde 2026-08-12 o modo administrador ja nao decide nada na escrita —
@@ -515,22 +570,22 @@ function doPost(e) {
 
 function processarEntrada_(dados, ent, idx, admin, linhasLog) {
   var uuid = String(ent.uuid || '').trim();
-  if (!uuid) return { ok: false, uuid: '', erro: 'Falta o ID do envio.' };
+  if (!uuid) return { ok: false, uuid: '', erro: 'Missing submission ID.' };
   if (idx.uuids[uuid]) return { ok: true, uuid: uuid, duplicado: true };
 
   try {
     var seq = Number(ent.seq);
-    if (!(seq >= 1 && seq <= TOTAL_PLANTAS)) throw new Error('Planta fora do intervalo: ' + ent.seq);
+    if (!(seq >= 1 && seq <= TOTAL_PLANTAS)) throw new Error('Plant out of range: ' + ent.seq);
 
     var linha = LINHA_PRIMEIRA_PLANTA + seq - 1;
     var pidFolha = String(dados.getRange(linha, 1).getValue()).trim();
     if (ent.pid && pidFolha && pidFolha !== String(ent.pid).trim()) {
-      throw new Error('Plant ID não corresponde (folha: ' + pidFolha + ', envio: ' + ent.pid + ').');
+      throw new Error('Plant ID does not match (sheet: ' + pidFolha + ', submission: ' + ent.pid + ').');
     }
 
     var modo = String(ent.mode || '');
     if (modo !== 'crescimento' && modo !== 'descritores') {
-      throw new Error('Levantamento desconhecido: ' + modo);
+      throw new Error('Unknown survey: ' + modo);
     }
     var campos = camposDoModo_(modo);
     var ronda = String(ent.ronda || '').trim();
@@ -542,7 +597,7 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
 
     // a ronda so faz falta para escrever no bloco do crescimento
     if (modo === 'crescimento' && !ronda && !morta && !viva) {
-      throw new Error('Falta a ronda do levantamento.');
+      throw new Error('Missing survey round.');
     }
 
     /* ------------------------------------------------ planta morta / viva --
@@ -563,9 +618,9 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
     }
 
     var anterior = idx.porChave[chave_(modo, ronda, pidFolha)];
-    var accao = eliminar ? ACCAO_ELIMINAR : (anterior ? 'Correcção' : 'Registo');
+    var accao = eliminar ? ACCAO_ELIMINAR : (anterior ? ACCAO_CORRECCAO : ACCAO_REGISTO);
     if (eliminar && !anterior) {
-      throw new Error('Não há nenhum registo desta planta para eliminar.');
+      throw new Error('There is no record of this plant to delete.');
     }
 
     /* PERMISSOES (2026-08-12) — a partir daqui NAO se recusa nada por causa de
@@ -631,7 +686,7 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
       }
     }
     // uma observacao sozinha ja e motivo suficiente para gravar o registo
-    if (!escritas.length && !notas) throw new Error('Nenhum valor preenchido.');
+    if (!escritas.length && !notas) throw new Error('No value filled in.');
 
     bloco.setValues([actuais]);
     if (notas) {
@@ -655,11 +710,11 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
   } catch (err) {
     var msg = String(err && err.message || err);
     var pedidaErro = String(ent.accao || '');
-    var tentada = 'Registo';
+    var tentada = ACCAO_REGISTO;
     if (pedidaErro === 'eliminar') tentada = ACCAO_ELIMINAR;
     else if (pedidaErro === 'morta') tentada = ACCAO_MORTA;
     else if (pedidaErro === 'viva') tentada = ACCAO_VIVA;
-    linhasLog.push(montarLinhaLog_(ent, uuid, '', tentada, 'ERRO: ' + msg, ''));
+    linhasLog.push(montarLinhaLog_(ent, uuid, '', tentada, PREFIXO_ERRO + msg, ''));
     return { ok: false, uuid: uuid, erro: msg };
   }
 }
@@ -708,7 +763,7 @@ function doGet(e) {
   CACHE_EXTRA = {};
   var p = (e && e.parameter) || {};
   if (!getToken() || p.token !== getToken()) {
-    return jsonOut_({ ok: false, erro: 'Não autorizado.', versao: VERSAO_CODIGO });
+    return jsonOut_({ ok: false, erro: 'Unauthorized.', versao: VERSAO_CODIGO });
   }
 
   try {
@@ -723,7 +778,7 @@ function doGet(e) {
     if (accao === 'estado') return jsonOut_(estado_(ss, log, p));
     if (accao === 'historico') return jsonOut_(historico_(log, p));
     if (accao === 'registo') return jsonOut_(registo_(log, p));
-    return jsonOut_({ ok: false, erro: 'Acção desconhecida: ' + accao });
+    return jsonOut_({ ok: false, erro: 'Unknown action: ' + accao });
   } catch (err) {
     return jsonOut_({ ok: false, erro: String(err && err.message || err) });
   }
@@ -816,10 +871,10 @@ function historico_(log, p) {
 /** Valores completos de um registo, para poder abrir o formulario ja preenchido. */
 function registo_(log, p) {
   var uuid = String(p.uuid || '').trim();
-  if (!uuid) return { ok: false, erro: 'Falta o ID do envio.' };
+  if (!uuid) return { ok: false, erro: 'Missing submission ID.' };
 
   var n = log.getLastRow();
-  if (n < 2) return { ok: false, erro: 'Registo não encontrado.' };
+  if (n < 2) return { ok: false, erro: 'Record not found.' };
 
   var ids = log.getRange(2, COL_UUID, n - 1, 1).getValues();
   for (var i = ids.length - 1; i >= 0; i--) {
@@ -850,7 +905,7 @@ function registo_(log, p) {
       }
     };
   }
-  return { ok: false, erro: 'Registo não encontrado.' };
+  return { ok: false, erro: 'Record not found.' };
 }
 
 // ------------------------------------------------------------- diagnostico
@@ -903,7 +958,81 @@ function diagnostico() {
   return texto;
 }
 
-// ------------------------------------------------- utilitario manual (uma vez)
+// ------------------------------------------------ utilitarios manuais (uma vez)
+
+/**
+ * Executar UMA VEZ a partir do editor para por as linhas ANTIGAS do Log em
+ * ingles. O cabecalho trata-se sozinho (garantirLog_ reescreve a linha 1 no
+ * primeiro pedido que chegar); isto e so para as linhas de dados ja gravadas.
+ *
+ * Toca em tres colunas e em mais nenhuma:
+ *   Action  — Registo/Correcção/Eliminação/Planta morta/Planta viva
+ *   Survey  — Crescimento (G-M) / Descritores (N-Z)
+ *   Status  — o prefixo 'ERRO: ' passa a 'ERROR: '
+ *
+ * Faz uma copia de seguranca da folha inteira antes de escrever. E idempotente:
+ * correr duas vezes nao estraga nada (a segunda nao encontra nada por traduzir).
+ */
+function traduzirLogParaIngles() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var log = ss.getSheetByName(FOLHA_LOG);
+  if (!log) { Logger.log('Nao ha folha Log.'); return; }
+
+  var n = log.getLastRow();
+  if (n < 2) { Logger.log('O Log nao tem linhas de dados.'); return; }
+
+  var nome = 'Log_backup_' + Utilities.formatDate(new Date(), FUSO, 'yyyyMMdd_HHmmss');
+  var largura = Math.min(Math.max(log.getLastColumn(), CABECALHO_LOG.length),
+                         log.getMaxColumns());
+  /* Uma folha nova nasce com 26 colunas: sem a esticar primeiro, o getRange de
+   * 39 colunas rebentava e a copia de seguranca nunca chegava a ser feita. */
+  var copia = ss.insertSheet(nome);
+  if (copia.getMaxColumns() < largura) {
+    copia.insertColumnsAfter(copia.getMaxColumns(), largura - copia.getMaxColumns());
+  }
+  if (copia.getMaxRows() < n) {
+    copia.insertRowsAfter(copia.getMaxRows(), n - copia.getMaxRows());
+  }
+  copia.getRange(1, 1, n, largura).setValues(log.getRange(1, 1, n, largura).getValues());
+  Logger.log('Copia de seguranca criada: ' + nome);
+
+  var MODO_ANTIGO = {
+    'Crescimento (G-M)': ROTULO_MODO.crescimento,
+    'Crescimento (G-L)': ROTULO_MODO.crescimento,   // antes de a coluna Branch entrar
+    'Descritores (N-Z)': ROTULO_MODO.descritores,
+    'Descritores (M-Y)': ROTULO_MODO.descritores
+  };
+
+  var accoes = log.getRange(2, COL_ACCAO, n - 1, 1).getValues();
+  var modos = log.getRange(2, COL_LEVANTAMENTO, n - 1, 1).getValues();
+  var estados = log.getRange(2, COL_ESTADO, n - 1, 1).getValues();
+  var mudou = { accao: 0, modo: 0, estado: 0 };
+
+  for (var i = 0; i < accoes.length; i++) {
+    var a = String(accoes[i][0]).trim();
+    if (ACCAO_ANTIGA.hasOwnProperty(a)) { accoes[i][0] = ACCAO_ANTIGA[a]; mudou.accao++; }
+
+    var m = String(modos[i][0]).trim();
+    if (MODO_ANTIGO.hasOwnProperty(m)) { modos[i][0] = MODO_ANTIGO[m]; mudou.modo++; }
+
+    var e = String(estados[i][0]);
+    if (e.indexOf('ERRO: ') === 0) {
+      estados[i][0] = PREFIXO_ERRO + e.slice('ERRO: '.length);
+      mudou.estado++;
+    }
+  }
+
+  log.getRange(2, COL_ACCAO, n - 1, 1).setValues(accoes);
+  log.getRange(2, COL_LEVANTAMENTO, n - 1, 1).setValues(modos);
+  log.getRange(2, COL_ESTADO, n - 1, 1).setValues(estados);
+  garantirLog_(ss);
+  SpreadsheetApp.flush();
+
+  var texto = 'Log traduzido: ' + mudou.accao + ' accoes, ' + mudou.modo +
+              ' levantamentos, ' + mudou.estado + ' estados (em ' + (n - 1) + ' linhas).';
+  Logger.log(texto);
+  return texto;
+}
 
 /**
  * Executar UMA VEZ a partir do editor para reconstruir o cabecalho da folha Log.

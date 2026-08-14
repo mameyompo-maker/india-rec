@@ -18,6 +18,11 @@ TOKEN = "tok-teste-123456"
 ADMIN = "adm-teste"
 FALHAS = []
 
+# O que se escrevia na folha ate 2026-08-14. Nenhuma linha pode ficar assim
+# depois de correr traduzirLogParaIngles().
+ACCOES_PT = {"Registo", "Correcção", "Eliminação", "Planta morta", "Planta viva"}
+MODOS_PT = {"Crescimento (G-M)", "Descritores (N-Z)"}
+
 
 def ok(cond, msg, extra=""):
     print(("  OK   " if cond else "  FALHA") + "  " + msg + (("  | " + str(extra)) if not cond and extra else ""))
@@ -53,6 +58,9 @@ ARRANQUE = """
   return 'pronto';
 })()
 """
+
+
+SEM_MEDIDA_PY = "X"   # tem de ser igual ao SEM_MEDIDA do Codigo.gs
 
 
 def envio(**kw):
@@ -107,22 +115,22 @@ def main():
         print("\n[2] constantes de coluna do Log")
         n_cab = pag.evaluate("CABECALHO_LOG.length")
         ok(n_cab == 39, f"cabecalho tem 39 colunas ({n_cab})")
-        ok(pag.evaluate("CABECALHO_LOG[COL_UUID-1]") == "ID do envio", "COL_UUID aponta para 'ID do envio'")
-        ok(pag.evaluate("CABECALHO_LOG[COL_SUBSTITUI-1]") == "Substitui o envio", "COL_SUBSTITUI certo")
-        ok(pag.evaluate("CABECALHO_LOG[COL_ESTADO-1]") == "Estado", "COL_ESTADO certo")
-        ok(pag.evaluate("CABECALHO_LOG[COL_RECORDER-1]") == "Registado por", "COL_RECORDER certo")
-        ok(pag.evaluate("CABECALHO_LOG[COL_ACCAO-1]") == "Acção", "COL_ACCAO certo")
-        ok(pag.evaluate("CABECALHO_LOG[COL_LEVANTAMENTO-1]") == "Levantamento", "COL_LEVANTAMENTO certo")
-        ok(pag.evaluate("CABECALHO_LOG[COL_RONDA-1]") == "Ronda", "COL_RONDA certo")
+        ok(pag.evaluate("CABECALHO_LOG[COL_UUID-1]") == "Submission ID", "COL_UUID aponta para 'Submission ID'")
+        ok(pag.evaluate("CABECALHO_LOG[COL_SUBSTITUI-1]") == "Replaces submission", "COL_SUBSTITUI certo")
+        ok(pag.evaluate("CABECALHO_LOG[COL_ESTADO-1]") == "Status", "COL_ESTADO certo")
+        ok(pag.evaluate("CABECALHO_LOG[COL_RECORDER-1]") == "Recorded by", "COL_RECORDER certo")
+        ok(pag.evaluate("CABECALHO_LOG[COL_ACCAO-1]") == "Action", "COL_ACCAO certo")
+        ok(pag.evaluate("CABECALHO_LOG[COL_LEVANTAMENTO-1]") == "Survey", "COL_LEVANTAMENTO certo")
+        ok(pag.evaluate("CABECALHO_LOG[COL_RONDA-1]") == "Round", "COL_RONDA certo")
         ok(pag.evaluate("CABECALHO_LOG[COL_PID-1]") == "Plant ID", "COL_PID certo")
-        ok(pag.evaluate("CABECALHO_LOG[COL_PRIMEIRO_CAMPO-1]") == "Altura da planta (m)",
+        ok(pag.evaluate("CABECALHO_LOG[COL_PRIMEIRO_CAMPO-1]") == "Plant height (m)",
            "COL_PRIMEIRO_CAMPO aponta para o 1o campo")
         # as tres novas entraram DEPOIS de "Estado": o Log ja tem linhas gravadas
         # e mexer no meio deslocava o significado de tudo o que esta a direita
-        ok(pag.evaluate("CABECALHO_LOG[COL_NOTAS-1]") == "Notas", "COL_NOTAS certo")
-        ok(pag.evaluate("CABECALHO_LOG[COL_ESTADO_PLANTA-1]") == "Estado da planta",
+        ok(pag.evaluate("CABECALHO_LOG[COL_NOTAS-1]") == "Notes", "COL_NOTAS certo")
+        ok(pag.evaluate("CABECALHO_LOG[COL_ESTADO_PLANTA-1]") == "Plant status",
            "COL_ESTADO_PLANTA certo")
-        ok(pag.evaluate("CABECALHO_LOG[COL_REF-1]") == "N.º de referência", "COL_REF certo")
+        ok(pag.evaluate("CABECALHO_LOG[COL_REF-1]") == "Reference no.", "COL_REF certo")
         ok(pag.evaluate("COL_ESTADO") == 36,
            "as colunas antigas nao se mexeram (Estado continua na 36)")
 
@@ -139,7 +147,7 @@ def main():
         print("\n[3] token e autorizacao")
         r = pag.evaluate("() => JSON.parse(doPost({postData:{contents: JSON.stringify("
                          "{token:'errado', entries:[]})}}).getContent())")
-        ok(r["ok"] is False and "autoriz" in r["erro"].lower(), "POST com token errado e recusado", r)
+        ok(r["ok"] is False and "unauthorized" in r["erro"].lower(), "POST com token errado e recusado", r)
         ok(r.get("versao") == pag.evaluate("VERSAO_CODIGO"),
            f"POST recusado diz a versao ({r.get('versao')})")
         r = get(pag, {"token": "errado", "action": "estado"})
@@ -152,7 +160,7 @@ def main():
         r = post(pag, [envio()])
         res = r["resultados"][0]
         ok(r["ok"] and res["ok"], "aceite", res)
-        ok(res["accao"] == "Registo", f"accao=Registo ({res.get('accao')})")
+        ok(res["accao"] == "Record", f"accao=Record ({res.get('accao')})")
         ok(res["linha"] == 47, f"planta 45 -> linha 47 ({res.get('linha')})")
         ok(sorted(res["celulas"]) == ["N47", "O47", "V47"],
            f"escreveu so as celulas preenchidas ({res.get('celulas')})")
@@ -168,12 +176,12 @@ def main():
         ok(fk == [1, 0.6, 0.7, 2, 0, 8, 16], f"G..M nao foi tocado ({fk})")
 
         cab = pag.evaluate("colunas(LIVRO.folhas['Log'], 1, 1, 39)")
-        ok(cab[3] == "Acção" and cab[35] == "Estado", "o Log ganhou o cabecalho certo")
+        ok(cab[3] == "Action" and cab[35] == "Status", "o Log ganhou o cabecalho certo")
         l2 = pag.evaluate("colunas(LIVRO.folhas['Log'], 2, 1, 39)")
         ok(len(l2) == 39, "linha do Log com 39 colunas")
         ok(l2[2] == "Cheia", f"Registado por ({l2[2]})")
-        ok(l2[3] == "Registo", f"Acção ({l2[3]})")
-        ok(l2[4] == "Descritores (N-Z)", f"Levantamento ({l2[4]})")
+        ok(l2[3] == "Record", f"Action ({l2[3]})")
+        ok(l2[4] == "Descriptors (N-Z)", f"Survey ({l2[4]})")
         ok(l2[6] == "NBF(Tanheia)26-045", f"Plant ID ({l2[6]})")
         ok(l2[11] == 47, f"Linha em Data ({l2[11]})")
         ok(l2[20] == 12.5, f"Limbo foliar no Log ({l2[20]})")
@@ -190,7 +198,7 @@ def main():
         print("\n[6] correccao do proprio registo")
         r = post(pag, [envio(uuid="u2", substitui="u1", values={"limboFoliar": 14})])
         res = r["resultados"][0]
-        ok(res["ok"] and res["accao"] == "Correcção", f"marcada como Correcção ({res.get('accao')})")
+        ok(res["ok"] and res["accao"] == "Correction", f"marcada como Correction ({res.get('accao')})")
         lx = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 14, 26)")
         ok(lx[1] == 14, f"M47 actualizado ({lx[1]})")
         ok(lx[0] == "Vertical", f"L47 preservado apesar de vir vazio ({lx[0]})")
@@ -202,7 +210,7 @@ def main():
         r = post(pag, [envio(uuid="u3", recorder="Joana", values={"limboFoliar": 99})])
         res = r["resultados"][0]
         ok(res["ok"], "a Joana corrige o registo da Cheia sem ser administradora", res)
-        ok(res["accao"] == "Correc\u00e7\u00e3o", f"marcada como Correc\u00e7\u00e3o ({res.get('accao')})")
+        ok(res["accao"] == "Correction", f"marcada como Correction ({res.get('accao')})")
         lx = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 14, 26)")
         ok(lx[1] == 99, f"o valor da Joana ficou escrito ({lx[1]})")
         j = get(pag, {"action": "estado", "mode": "descritores"})
@@ -253,7 +261,7 @@ def main():
         cab1 = pag.evaluate("colunas(LIVRO.folhas['Data'], 1, 27, 33)")
         cab2 = pag.evaluate("colunas(LIVRO.folhas['Data'], 2, 27, 33)")
         ok(cab1[0] == "11 month (20261111)", f"linha 1 com o nome da ronda ({cab1[0]})")
-        ok(cab2[0] == "Altura da planta (m)" and cab2[4] == "Cachos de frutos (n.º)",
+        ok(cab2[0] == "Plant height (m)" and cab2[4] == "Fruit bunches (no.)",
            f"linha 2 com os campos ({cab2})")
         novo = pag.evaluate("colunas(LIVRO.folhas['Data'], 47, 27, 33)")
         ok(novo[0] == 1.4 and novo[4] == 3, f"valores no bloco novo ({novo})")
@@ -300,7 +308,7 @@ def main():
         ok(d45["ultimo"] == "Pedro", f"ultimo a mexer ({d45['ultimo']})")
         ok(d45["ref"] == 2 and d45["lote"] == "India #bag02" and d45["noLote"] == 15,
            f"o historico traz o n.o de referencia ({d45.get('ref')}, {d45.get('lote')}, {d45.get('noLote')})")
-        ok(d45["accao"] == "Correcção", f"mostra a accao ({d45['accao']})")
+        ok(d45["accao"] == "Correction", f"mostra a accao ({d45['accao']})")
 
         # u1 foi o envio com habito + cor preenchidos
         j = get(pag, {"action": "registo", "uuid": "u1"})
@@ -345,7 +353,7 @@ def main():
         # o Log guarda o que la estava
         n = pag.evaluate("LIVRO.folhas['Log'].getLastRow()")
         ult = pag.evaluate("colunas(LIVRO.folhas['Log'], %d, 1, 39)" % n)
-        ok(ult[3].startswith("Elimina"), f"Accao = Eliminacao ({ult[3]})")
+        ok(ult[3] == "Deletion", f"Accao = Deletion ({ult[3]})")
         ok(ult[20] == 7.5, f"o Log guardou o valor apagado ({ult[20]})")
         ok(ult[35] == "OK", f"Estado OK ({ult[35]})")
 
@@ -355,13 +363,13 @@ def main():
         r = post(pag, [envio(uuid="e3", seq=320, pid="NBF(Tanheia)26-320",
                              recorder="Joana", values={"limboFoliar": 3})])
         res = r["resultados"][0]
-        ok(res["ok"] and res["accao"] == "Registo",
+        ok(res["ok"] and res["accao"] == "Record",
            f"depois de eliminado volta a ser um Registo novo ({res.get('accao')})")
 
         # eliminar o que nao existe da erro limpo
         r = post(pag, [envio(uuid="e4", seq=321, pid="NBF(Tanheia)26-321",
                              recorder="Cheia", accao="eliminar", values={})])
-        ok(r["resultados"][0]["ok"] is False and "eliminar" in r["resultados"][0]["erro"],
+        ok(r["resultados"][0]["ok"] is False and "delete" in r["resultados"][0]["erro"],
            f"eliminar sem registo da erro ({r['resultados'][0].get('erro')})")
 
         print("\n[18b] observacoes livres")
@@ -399,7 +407,7 @@ def main():
         r = post(pag, [envio(uuid="m1", seq=340, pid="NBF(Tanheia)26-340", recorder="Cheia",
                              accao="morta", values={})])
         res = r["resultados"][0]
-        ok(res["ok"] and res["accao"] == "Planta morta",
+        ok(res["ok"] and res["accao"] == "Dead plant",
            f"aceite ({res.get('accao')}, {res.get('erro')})")
         colE = pag.evaluate("procurarColunaExtra_(LIVRO.folhas['Data'], 'estadoPlanta')")
         ok(pag.evaluate("LIVRO.folhas['Data'].getRange(342, %d).getValue()" % colE) == "Dead",
@@ -431,6 +439,98 @@ def main():
            "e nao se criou nenhum bloco por engano")
         ok(pag.evaluate("colunas(LIVRO.folhas['Data'], 352, 27, 33)")[0] == 1.1,
            "escreveu no bloco da ronda certa")
+
+        print("\n[18e] as linhas escritas em portugues ate 2026-08-14 continuam a ser lidas")
+        # O Log real tem 433 linhas com 'Registo'/'Descritores (N-Z)'/'Planta morta'.
+        # Escreve-se uma de cada a mao, como se tivesse vindo da versao antiga.
+        pag.evaluate("""() => {
+          const log = LIVRO.folhas['Log'];
+          const nova = (pid, accao, levant, uuid) => {
+            const l = log.getLastRow() + 1;
+            const linha = new Array(39).fill('');
+            linha[2] = 'Felismino'; linha[3] = accao; linha[4] = levant;
+            linha[6] = pid; linha[32] = uuid; linha[35] = 'OK';
+            log.getRange(l, 1, 1, 39).setValues([linha]);
+          };
+          nova('NBF(Tanheia)26-360', 'Registo', 'Descritores (N-Z)', 'velho-1');
+          nova('NBF(Tanheia)26-361', 'Registo', 'Descritores (N-Z)', 'velho-2');
+          nova('NBF(Tanheia)26-361', 'Planta morta', 'Descritores (N-Z)', 'velho-3');
+          nova('NBF(Tanheia)26-362', 'Registo', 'Descritores (N-Z)', 'velho-4');
+          nova('NBF(Tanheia)26-362', 'Eliminação', 'Descritores (N-Z)', 'velho-5');
+          nova('NBF(Tanheia)26-363', 'Registo', 'Crescimento (G-M)', 'velho-6');
+        }""")
+        j = get(pag, {"action": "estado", "mode": "descritores"})
+        feitas = {f[0]: f[1] for f in j["feitas"]}
+        ok(feitas.get(360) == "Felismino", f"'Registo' antigo conta como feito ({feitas.get(360)})")
+        ok(361 in feitas, "'Planta morta' antiga nao apaga o registo que estava")
+        ok(362 not in feitas, "'Eliminação' antiga continua a apagar o registo")
+        ok(363 not in feitas, "'Crescimento (G-M)' antigo nao entra nos descritores")
+        j2 = get(pag, {"action": "estado", "mode": "crescimento", "ronda": ""})
+        ok(363 in [f[0] for f in j2["feitas"]], "'Crescimento (G-M)' antigo entra no crescimento")
+        # reenviar um uuid antigo nao pode duplicar
+        r = post(pag, [envio(uuid="velho-1", seq=360, pid="NBF(Tanheia)26-360")])
+        ok(r["resultados"][0].get("duplicado") is True, "o uuid de uma linha antiga e reconhecido")
+        # e uma medicao nova sobre uma planta ja registada em portugues e Correction
+        r = post(pag, [envio(uuid="novo-1", seq=360, pid="NBF(Tanheia)26-360",
+                             values={"limboFoliar": 8})])
+        ok(r["resultados"][0].get("accao") == "Correction",
+           f"por cima de um 'Registo' antigo vem Correction ({r['resultados'][0].get('accao')})")
+
+        print("\n[18f] traduzirLogParaIngles() poe as linhas antigas em ingles")
+        antes = pag.evaluate("LIVRO.folhas['Log'].getLastRow()")
+        pag.evaluate("traduzirLogParaIngles()")
+        depois = pag.evaluate("LIVRO.folhas['Log'].getLastRow()")
+        ok(antes == depois, f"nao acrescenta nem apaga linhas ({antes} -> {depois})")
+        col = pag.evaluate(
+            "(() => { const l = LIVRO.folhas['Log'], n = l.getLastRow();"
+            " return { accoes: l.getRange(2, COL_ACCAO, n-1, 1).getValues().map(r => r[0]),"
+            "          modos: l.getRange(2, COL_LEVANTAMENTO, n-1, 1).getValues().map(r => r[0]) }; })()")
+        ok(not [a for a in col["accoes"] if a in ACCOES_PT],
+           f"nao sobrou nenhuma accao em portugues ({[a for a in col['accoes'] if a in ACCOES_PT]})")
+        ok(not [m for m in col["modos"] if m in MODOS_PT],
+           f"nao sobrou nenhum levantamento em portugues ({[m for m in col['modos'] if m in MODOS_PT]})")
+        ok("Record" in col["accoes"] and "Dead plant" in col["accoes"],
+           "as antigas ficaram traduzidas, nao apagadas")
+        ok(any(n.startswith("Log_backup_") for n in pag.evaluate("Object.keys(LIVRO.folhas)")),
+           "guardou uma copia de seguranca antes de escrever")
+        # e o indice continua a dar o mesmo depois de traduzir
+        j3 = get(pag, {"action": "estado", "mode": "descritores"})
+        f3 = {f[0]: f[1] for f in j3["feitas"]}
+        ok(360 in f3 and 361 in f3 and 362 not in f3,
+           "o indice le o mesmo depois da traducao")
+
+        print("\n[18g] campos por medir: 0 nas medidas, X nas escolhas")
+        # O cliente ja nao manda campos em branco — manda o que se mediu e, no
+        # resto, "estive la e nao havia". Uma celula vazia passa a querer dizer
+        # so uma coisa: ninguem la foi.
+        r = post(pag, [envio(uuid="u-semmedida", seq=411,
+                             pid="NBF(Tanheia)26-411", row="r16", noFileira=7,
+                             values={"limboFoliar": 4.5,
+                                     "habitoCrescimento": SEM_MEDIDA_PY,
+                                     "corFruto": SEM_MEDIDA_PY,
+                                     "frutoComprimento": 0})])
+        ok(r["resultados"][0]["ok"], "o servidor aceita o X e o 0",
+           r["resultados"][0].get("erro"))
+
+        # colunas N..Z do Data: habito, limbo, ... , comprimento e largura do fruto
+        lx = pag.evaluate("colunas(LIVRO.folhas[Chr34DataChr34], 413, 14, 26)".replace("Chr34", chr(39)))
+        ok(lx[0] == SEM_MEDIDA_PY, f"o habito ficou X na folha ({lx[0]!r})")
+        ok(lx[1] == 4.5, f"o que se mediu ficou como foi medido ({lx[1]!r})")
+        ok(lx[8] == SEM_MEDIDA_PY, f"a cor do fruto tambem ficou X ({lx[8]!r})")
+        ok(lx[9] == 0, f"a medida por fazer ficou 0 ({lx[9]!r})")
+
+        j = get(pag, {"action": "registo", "uuid": "u-semmedida"})
+        ok(j["ok"], "o registo le-se de volta", j.get("erro"))
+        ok("habitoCrescimento" not in j["registo"]["values"],
+           "o X volta como nada escolhido, para o ecra nao inventar uma opcao")
+        ok(j["registo"]["values"].get("frutoComprimento") == 0,
+           "mas o 0 volta como 0 — foi medido e deu zero")
+
+        r = post(pag, [envio(uuid="u-corinvalida", seq=412,
+                             pid="NBF(Tanheia)26-412", row="r16", noFileira=8,
+                             values={"corFruto": "arco-iris"})])
+        ok(not r["resultados"][0]["ok"],
+           "uma escolha que nao existe continua a ser recusada")
 
         print("\n[19] funcao diagnostico()")
         d = pag.evaluate("diagnostico()")

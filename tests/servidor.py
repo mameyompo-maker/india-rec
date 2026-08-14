@@ -31,7 +31,7 @@ COLS_DESCR = ["habitoCrescimento", "limboFoliar", "peciolo", "folhaComprimento",
               "sementeLargura"]
 BASE_CRESC = 7   # coluna G
 BASE_DESCR = 14  # coluna N
-ROTULO = {"crescimento": "Crescimento (G-M)", "descritores": "Descritores (N-Z)"}
+ROTULO = {"crescimento": "Growth (G-M)", "descritores": "Descriptors (N-Z)"}
 
 # lotes pela ordem da folha: o n.o de referencia e a posicao nesta lista
 LOTES = [("India #bag01", 30), ("India #bag02", 25), ("India #bag03", 25),
@@ -78,10 +78,10 @@ def por_chave():
         if not r["estado"].startswith("OK"):
             continue
         # marcas da planta: ficam no log mas nao sao registos de levantamento
-        if r["accao"] in ("Planta morta", "Planta viva"):
+        if r["accao"] in ("Dead plant", "Live plant"):
             continue
         k = chave(r["mode"], r.get("ronda", ""), r["pid"])
-        if r["accao"] == "Eliminação":
+        if r["accao"] == "Deletion":
             out.pop(k, None)          # anulado: volta a contar como por fazer
             continue
         ja = out.get(k)
@@ -137,7 +137,7 @@ class H(SimpleHTTPRequestHandler):
             with E["lock"]:
                 E["log"].append({
                     "uuid": "semeado-1", "tsLocal": "01/08/2026 08:00:00",
-                    "recorder": q.get("quem", "Outra Pessoa"), "accao": "Registo",
+                    "recorder": q.get("quem", "Outra Pessoa"), "accao": "Record",
                     "mode": q.get("mode", "descritores"), "ronda": q.get("ronda", ""),
                     "pid": q.get("pid", "NBF(Tanheia)26-100"),
                     "values": {"limboFoliar": 9.9}, "estado": "OK",
@@ -255,7 +255,7 @@ class H(SimpleHTTPRequestHandler):
                 E["mortas"].add(seq)
             else:
                 E["mortas"].discard(seq)
-            rotulo = "Planta morta" if pedida == "morta" else "Planta viva"
+            rotulo = "Dead plant" if pedida == "morta" else "Live plant"
             E["uuids"].add(uuid)
             E["log"].append({**ent, "accao": rotulo, "estado": "OK"})
             return {"uuid": uuid, "ok": True, "linha": 2 + seq,
@@ -263,20 +263,20 @@ class H(SimpleHTTPRequestHandler):
 
         anterior = por_chave().get(chave(modo, ronda, pid))
         eliminar = pedida == "eliminar"
-        accao = "Eliminação" if eliminar else ("Correcção" if anterior else "Registo")
+        accao = "Deletion" if eliminar else ("Correction" if anterior else "Record")
 
         if eliminar and not anterior:
             erro = "Não há nenhum registo desta planta para eliminar."
-            E["log"].append({**ent, "accao": "Eliminação", "estado": "ERRO: " + erro})
+            E["log"].append({**ent, "accao": "Deletion", "estado": "ERROR: " + erro})
             return {"uuid": uuid, "ok": False, "erro": erro}
 
         # desde 2026-08-12 nao ha recusa por causa de quem registou
 
         if eliminar:
             E["uuids"].add(uuid)
-            E["log"].append({**ent, "accao": "Eliminação", "estado": "OK"})
+            E["log"].append({**ent, "accao": "Deletion", "estado": "OK"})
             return {"uuid": uuid, "ok": True, "linha": 2 + seq,
-                    "accao": "Eliminação", "celulas": []}
+                    "accao": "Deletion", "celulas": []}
 
         chaves = COLS_CRESC if modo == "crescimento" else COLS_DESCR
         vals = ent.get("values", {})
