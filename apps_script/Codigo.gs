@@ -30,7 +30,7 @@ var TOTAL_PLANTAS = 415;
  * nao se distingue "colei mal" de "implantei a versao antiga".
  * Subir sempre que o Codigo.gs for alterado.
  */
-var VERSAO_CODIGO = '2026-08-15b';
+var VERSAO_CODIGO = '2026-08-28';
 
 /**
  * COMPATIBILIDADE (2026-08-12) — LER ANTES DE MEXER.
@@ -456,6 +456,29 @@ function garantirLog_(ss) {
 }
 
 /**
+ * Folha de dados ("Data"): tenta o nome esperado primeiro; se tiver sido
+ * renomeada (ex.: para marcar a ronda, "Data_5months", "Data_8months", ...),
+ * usa a primeira folha que nao seja o Log nem uma copia de seguranca dele
+ * (ss.insertSheet cria essas com o prefixo "Log_backup_" — ver
+ * traduzirLogParaIngles()/reconstruirCabecalhoLog()). So funciona enquanto
+ * houver UMA UNICA folha de dados nesta spreadsheet — 2026-08-28: o Kaz pediu
+ * que a estrutura fique facil de mudar de ano para ano (novas folhas,
+ * remover as antigas); se um dia passar a haver MAIS de uma folha de dados ao
+ * mesmo tempo (ex.: uma por ronda), este fallback deixa de bastar e e preciso
+ * um novo mecanismo explicito para escolher qual delas e a "actual".
+ */
+function folhaDados_(ss) {
+  var f = ss.getSheetByName(FOLHA_DADOS);
+  if (f) return f;
+  var todas = ss.getSheets();
+  for (var i = 0; i < todas.length; i++) {
+    var nome = todas[i].getName();
+    if (nome !== FOLHA_LOG && nome.indexOf('Log_backup_') !== 0) return todas[i];
+  }
+  throw new Error('Nao foi possivel encontrar a folha de dados (esperava "' + FOLHA_DADOS + '").');
+}
+
+/**
  * Le a folha Log uma so vez e devolve:
  *   uuids     — todos os IDs de envio ja gravados (deduplicacao)
  *   porChave  — ultimo registo valido de cada planta/levantamento/ronda
@@ -542,7 +565,7 @@ function doPost(e) {
     if (!entradas.length) return jsonOut_({ ok: true, resultados: [] });
 
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    var dados = ss.getSheetByName(FOLHA_DADOS);
+    var dados = folhaDados_(ss);
     var log = garantirLog_(ss);
     var idx = lerIndice_(log);
 
@@ -800,7 +823,7 @@ function estado_(ss, log, p) {
   }
   feitas.sort(function (a, b) { return a[0] - b[0]; });
 
-  var dados = ss.getSheetByName(FOLHA_DADOS);
+  var dados = folhaDados_(ss);
   var linha1 = dados.getRange(1, 1, 1, dados.getLastColumn()).getValues()[0];
   var rondas = [];
   for (var i = COL_PRIMEIRO_BLOCO_RONDA - 1; i < linha1.length; i++) {
@@ -939,7 +962,15 @@ function diagnostico() {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     l.push('Folha de calculo   : ' + ss.getName());
     var d = ss.getSheetByName(FOLHA_DADOS);
-    l.push('Aba Data           : ' + (d ? d.getLastRow() + ' linhas' : 'NAO ENCONTRADA'));
+    if (d) {
+      l.push('Aba Data ("' + FOLHA_DADOS + '") : ' + d.getLastRow() + ' linhas');
+    } else {
+      var dFallback = folhaDados_(ss);
+      l.push('Aba Data           : "' + FOLHA_DADOS + '" NAO ENCONTRADA — a usar "' +
+             dFallback.getName() + '" (' + dFallback.getLastRow() + ' linhas) pelo fallback' +
+             ' de folhaDados_(). Actualiza FOLHA_DADOS no topo do ficheiro se este for' +
+             ' mesmo o novo nome definitivo.');
+    }
     var lg = ss.getSheetByName(FOLHA_LOG);
     l.push('Aba Log            : ' + (lg ? lg.getLastRow() + ' linhas' : 'NAO ENCONTRADA'));
   } catch (err) {
