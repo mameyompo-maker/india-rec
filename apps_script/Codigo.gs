@@ -30,7 +30,7 @@ var TOTAL_PLANTAS = 415;
  * nao se distingue "colei mal" de "implantei a versao antiga".
  * Subir sempre que o Codigo.gs for alterado.
  */
-var VERSAO_CODIGO = '2026-08-28';
+var VERSAO_CODIGO = '2026-11-07';
 
 /**
  * COMPATIBILIDADE (2026-08-12) — LER ANTES DE MEXER.
@@ -169,9 +169,23 @@ var COL_EXTRA_DEF = [
 /** O que fica gravado em "Plant status" quando a planta esta morta. */
 var VALOR_MORTA = 'Dead';
 
+/* 2026-11-07: as notas passam a ter uma coluna por ronda ("Notes (growth) -
+ * <ronda>"), senao as notas da 2.a ronda escreviam por cima das da 1.a — e
+ * eliminar um registo da 2.a ronda apagava as notas da 1.a. As rondas daqui
+ * continuam na coluna de sempre, sem sufixo, para nada do que ja esta gravado
+ * mudar de sitio: '' e a 1.a ronda dos descritores (que ate 2026-11 nao tinham
+ * ronda) e a outra e a 1.a do crescimento. */
+var RONDAS_NOTAS_ANTIGAS = { '': true, '5 month after planting (20260511)': true };
+
+/* Uma chave de coluna extra pode trazer a ronda depois de '|'
+ * ('notasCrescimento|11 month after planting (20261111)'). */
 function rotuloExtra_(chave) {
+  var partes = String(chave).split('|');
+  var ronda = partes.slice(1).join('|');
   for (var i = 0; i < COL_EXTRA_DEF.length; i++) {
-    if (COL_EXTRA_DEF[i].chave === chave) return COL_EXTRA_DEF[i].rotulo;
+    if (COL_EXTRA_DEF[i].chave === partes[0]) {
+      return COL_EXTRA_DEF[i].rotulo + (ronda ? ' - ' + ronda : '');
+    }
   }
   return '';
 }
@@ -181,9 +195,16 @@ function ehRotuloExtra_(texto) {
   if (!s) return false;
   for (var i = 0; i < COL_EXTRA_DEF.length; i++) {
     if (COL_EXTRA_DEF[i].rotulo === s) return true;
+    if (s.indexOf(COL_EXTRA_DEF[i].rotulo + ' - ') === 0) return true;
   }
   return false;
 }
+
+/* Os descritores so passaram a ter rondas em 2026-11-07. A 1.a ronda (ronda
+ * vazia) continua nas colunas fixas N..Z; cada ronda nova ganha um bloco
+ * proprio no fim da folha, com este prefixo no cabecalho — o prefixo e o que
+ * o distingue de um bloco de crescimento com o mesmo nome de ronda. */
+var PREFIXO_BLOCO_DESCRITORES = 'Descriptors - ';
 
 /**
  * A linha 1 da folha Data tem cabecalhos de quatro tipos: identificacao (A..F),
@@ -197,6 +218,7 @@ function ehColunaDeRonda_(c, texto) {
   var ult = CAMPOS_DESCRITORES[CAMPOS_DESCRITORES.length - 1].col;
   if (c < COL_PRIMEIRO_BLOCO_RONDA) return false;
   if (c >= pri && c <= ult) return false;
+  if (String(texto == null ? '' : texto).trim().indexOf(PREFIXO_BLOCO_DESCRITORES) === 0) return false;
   return !ehRotuloExtra_(texto);
 }
 
@@ -311,9 +333,11 @@ function seqDoPid_(pid) {
   return m ? parseInt(m[1], 10) : 0;
 }
 
-/** Chave que identifica um registo: mesmo levantamento + ronda + planta. */
+/** Chave que identifica um registo: mesmo levantamento + ronda + planta.
+ * Os descritores tambem tem ronda desde 2026-11-07; os registos antigos deles
+ * tem a ronda vazia e continuam todos debaixo da mesma chave de antes. */
 function chave_(modo, ronda, pid) {
-  return modo + '|' + (modo === 'crescimento' ? String(ronda || '') : '') + '|' + pid;
+  return modo + '|' + String(ronda || '') + '|' + pid;
 }
 
 /** Converte o valor bruto do cliente no valor a gravar. null = nao escrever. */
@@ -387,6 +411,36 @@ function colunaBlocoRonda_(folha, ronda) {
   return inicio;
 }
 
+/**
+ * Bloco de uma ronda dos descritores. Ronda vazia = a 1.a, nas colunas fixas
+ * N..Z (onde esta tudo o que foi medido antes de 2026-11). Uma ronda nova
+ * procura-se pelo cabecalho "Descriptors - <ronda>" e, se ainda nao existir,
+ * cria-se no fim da folha — como os blocos do crescimento.
+ */
+function colunaBlocoDescritores_(folha, ronda) {
+  if (!ronda) return CAMPOS_DESCRITORES[0].col;
+  var titulo = PREFIXO_BLOCO_DESCRITORES + ronda;
+  var ultima = folha.getLastColumn();
+  var linha1 = folha.getRange(1, 1, 1, ultima).getValues()[0];
+  for (var i = 0; i < linha1.length; i++) {
+    if (String(linha1[i]).trim() === titulo) return i + 1;
+  }
+
+  var largura = CAMPOS_DESCRITORES.length;
+  var inicio = ultima + 1;
+  var precisa = inicio + largura - 1;
+  if (folha.getMaxColumns() < precisa) {
+    folha.insertColumnsAfter(folha.getMaxColumns(), precisa - folha.getMaxColumns());
+  }
+  folha.getRange(1, inicio).setValue(titulo);
+  folha.getRange(1, inicio, 1, largura).merge();
+  folha.getRange(2, inicio, 1, largura).setValues([
+    CAMPOS_DESCRITORES.map(function (c) { return c.rotulo; })
+  ]);
+  folha.getRange(1, inicio, 2, largura).setFontWeight('bold');
+  return inicio;
+}
+
 // -------------------------------------------------------- colunas extra (Data)
 
 /* Um lote de 25 envios procuraria a mesma coluna 25 vezes. A cache dura o que
@@ -434,8 +488,10 @@ function colunaExtra_(folha, chave) {
 }
 
 /** Chave da coluna de notas do levantamento indicado. */
-function chaveNotas_(modo) {
-  return modo === 'crescimento' ? 'notasCrescimento' : 'notasDescritores';
+function chaveNotas_(modo, ronda) {
+  var base = modo === 'crescimento' ? 'notasCrescimento' : 'notasDescritores';
+  ronda = String(ronda || '');
+  return RONDAS_NOTAS_ANTIGAS[ronda] ? base : base + '|' + ronda;
 }
 
 // ---------------------------------------------------------------- folha Log
@@ -657,7 +713,8 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
     // trata-se o bloco todo de uma vez: uma leitura e uma escrita por planta,
     // em vez de ate 19 chamadas soltas. Com lotes de 25 envios a diferenca e
     // entre umas centenas de chamadas e umas dezenas.
-    var colInicio = (modo === 'crescimento') ? colunaBlocoRonda_(dados, ronda) : campos[0].col;
+    var colInicio = (modo === 'crescimento') ? colunaBlocoRonda_(dados, ronda)
+                                             : colunaBlocoDescritores_(dados, ronda);
     var bloco = dados.getRange(linha, colInicio, 1, campos.length);
     var actuais = bloco.getValues()[0];
 
@@ -678,7 +735,7 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
 
       /* A coluna das notas so existe se alguem ja tiver escrito alguma:
        * eliminar nao e motivo para a criar. */
-      var colNotasEl = procurarColunaExtra_(dados, chaveNotas_(modo));
+      var colNotasEl = procurarColunaExtra_(dados, chaveNotas_(modo, ronda));
       var notasAntigas = colNotasEl
         ? String(dados.getRange(linha, colNotasEl).getValue() || '').trim() : '';
       if (notasAntigas) {
@@ -713,7 +770,7 @@ function processarEntrada_(dados, ent, idx, admin, linhasLog) {
 
     bloco.setValues([actuais]);
     if (notas) {
-      var colNotas = colunaExtra_(dados, chaveNotas_(modo));
+      var colNotas = colunaExtra_(dados, chaveNotas_(modo, ronda));
       dados.getRange(linha, colNotas).setValue(notas);
       escritas.push(colNotas);
     }
@@ -817,7 +874,7 @@ function estado_(ss, log, p) {
   for (var k in idx.porChave) {
     var r = idx.porChave[k];
     if (r.modo !== modo) continue;
-    if (modo === 'crescimento' && r.ronda !== ronda) continue;
+    if (r.ronda !== ronda) continue;
     var m = /-(\d{3})$/.exec(r.pid);
     if (m) feitas.push([parseInt(m[1], 10), r.dono]);   // o dono e quem pode corrigir
   }
